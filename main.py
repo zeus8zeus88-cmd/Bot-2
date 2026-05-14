@@ -1,25 +1,23 @@
-نببوبنبنبنبننimport os
+import os
 import json
 from pathlib import Path
 
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-
+import motor.motor_asyncio
 
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-
 if TOKEN is None:
     raise ValueError("DISCORD_TOKEN is missing from .env file")
 
-
-RECORDS_FILE = Path("records.json")
+MONGO_URI = os.getenv("MONGO_URI")
+if MONGO_URI is None:
+    raise ValueError("MONGO_URI is missing from .env file")
 
 ALLOWED_CHANNEL_NAME = "تسجيــــــــل-اعمال〢💵"
-
-
 
 PRICES = {
     "تحرير": 0.50,
@@ -27,73 +25,117 @@ PRICES = {
     "تبييض": 0.25,
 }
 
+# MongoDB setup
+mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+db = mongo_client["work_bot"]
+collection = db["records"]
 
-def load_records():
-    if not RECORDS_FILE.exists():
-        return {}
+async def load_records():
+    """Load records from MongoDB"""
+    doc = await collection.find_one({"_id": "records"})
+    if doc and "data" in doc:
+        return doc["data"]
+    return {}
 
-    with open(RECORDS_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
-
-
-def save_records(records):
-    with open(RECORDS_FILE, "w", encoding="utf-8") as file:
-        json.dump(records, file, ensure_ascii=False, indent=2)
-
+async def save_records(records):
+    """Save records to MongoDB"""
+    await collection.update_one(
+        {"_id": "records"},
+        {"$set": {"data": records}},
+        upsert=True
+    )
 
 def parse_fields(text):
     fields = {}
-
     for line in text.splitlines():
         if ":" not in line:
             continue
-
         key, value = line.split(":", 1)
         key = key.strip().lower()
         value = value.strip()
-
         fields[key] = value
-
     return fields
-
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
-
+    # Sync slash commands
+    await bot.tree.sync()
+    print("Slash commands synced")
 
 @bot.check
 async def only_allowed_channel(ctx):
     if ctx.channel.name == ALLOWED_CHANNEL_NAME:
         return True
-
     await ctx.send(f"استخدم أوامر البوت فقط في روم #{ALLOWED_CHANNEL_NAME}.")
     return False
-
 
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         return
-
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("ما عندك صلاحية تستخدم هذا الأمر.")
         return
-
     await ctx.send(f"صار خطأ: `{error}`")
 
+# ---------- Slash command to restore data from JSON file ----------
+@bot.tree.command(name="رفع_البيانات", description="رفع ملف records.json لاستعادة البيانات إلى MongoDB")
+async def upload_records(interaction: discord.Interaction, file: discord.Attachment):
+    # Only allow users with manage_messages permission
+    if not interaction.user.guild_permissions.manage_messages:
+        await interaction.response.send_message("ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
+        return
 
+    await interaction.response.defer(ephemeral=True)
+
+    # Check file extension
+    if not file.filename.endswith('.json'):
+        await interaction.followup.send("الملف يجب أن يكون بصيغة JSON.", ephemeral=True)
+        return
+
+    try:
+        # Read file content
+        content = await file.read()
+        data = json.loads(content.decode('utf-8'))
+
+        # Validate structure (should be dict with user IDs as keys)
+        if not isinstance(data, dict):
+            await interaction.followup.send("الملف غير صالح: البيانات الأساسية يجب أن تكون قاموساً (object).", ephemeral=True)
+            return
+
+        # Save to MongoDB
+        await collection.update_one(
+            {"_id": "records"},
+            {"$set": {"data": data}},
+            upsert=True
+        )
+
+        # Count total records
+        total_users = len(data)
+        total_entries = sum(len(entries) for entries in data.values() if isinstance(entries, list))
+
+        await interaction.followup.send(
+            f"✅ تم استعادة البيانات بنجاح!\n"
+            f"عدد المستخدمين: {total_users}\n"
+            f"إجمالي السجلات: {total_entries}",
+            ephemeral=True
+        )
+    except json.JSONDecodeError:
+        await interaction.followup.send("الملف ليس بصيغة JSON صحيحة.", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"حدث خطأ: {str(e)}", ephemeral=True)
+
+# ---------- Original text commands (modified to use async load/save) ----------
 @bot.command(name="اوامر")
 async def help_commands(ctx):
     await ctx.send(
         "**📌 أوامر البوت:**\n\n"
-
         "**1. تسجيل شغل جديد**\n"
         "`!تحليل`\n"
         "يستخدمه العضو عشان يحفظ شغله.\n\n"
@@ -109,29 +151,23 @@ async def help_commands(ctx):
         "`ترجمة` = $0.50\n"
         "`تحرير` = $0.50\n"
         "`تبييض` = $0.25\n\n"
-
         "**2. عرض شغلك**\n"
         "`!شغل`\n"
         "يعرض كل الشغل المحفوظ لك مع المجموع.\n\n"
-
         "**3. عرض شغل عضو**\n"
         "`!شغل @member`\n"
         "يعرض شغل العضو المحدد.\n\n"
-
         "**4. حذف سجل - للإدارة فقط**\n"
         "`!حذف @member رقم_السجل`\n"
         "يحذف سجل معين من شغل عضو.\n\n"
         "مثال:\n"
         "`!حذف @jamal 2`\n\n"
-
         "**5. حذف كل السجلات - للإدارة فقط**\n"
         "`!حذف_الكل`\n"
         "يحذف كل السجلات المحفوظة لكل الأعضاء.\n\n"
-
         f"**ملاحظة:** أوامر البوت تعمل فقط في روم `#{ALLOWED_CHANNEL_NAME}`.\n"
         "رقم السجل يظهر عند استخدام أمر `!شغل @member` مثل `#1` و `#2`."
     )
-
 
 @bot.command(name="تحليل")
 async def analysis(ctx, *, text=None):
@@ -171,7 +207,7 @@ async def analysis(ctx, *, text=None):
 
     total = PRICES[work_type]
 
-    records = load_records()
+    records = await load_records()
     user_id = str(ctx.author.id)
 
     if user_id not in records:
@@ -185,7 +221,7 @@ async def analysis(ctx, *, text=None):
         "notes": notes,
     })
 
-    save_records(records)
+    await save_records(records)
 
     await ctx.send(
         f"✅ تم حفظ الشغل.\n\n"
@@ -195,12 +231,11 @@ async def analysis(ctx, *, text=None):
         f"💰 المبلغ: ${total:.2f}"
     )
 
-
 @bot.command(name="شغل")
 async def show_work(ctx, member: discord.Member = None):
     member = member or ctx.author
 
-    records = load_records()
+    records = await load_records()
     user_id = str(member.id)
 
     if user_id not in records or not records[user_id]:
@@ -242,7 +277,6 @@ async def show_work(ctx, member: discord.Member = None):
 
     await ctx.send(result)
 
-
 @bot.command(name="حذف")
 @commands.has_permissions(manage_messages=True)
 async def delete_work(ctx, member: discord.Member = None, number: int = None):
@@ -250,7 +284,7 @@ async def delete_work(ctx, member: discord.Member = None, number: int = None):
         await ctx.send("الاستخدام: `!حذف @member 2`")
         return
 
-    records = load_records()
+    records = await load_records()
     user_id = str(member.id)
 
     if user_id not in records or not records[user_id]:
@@ -262,7 +296,7 @@ async def delete_work(ctx, member: discord.Member = None, number: int = None):
         return
 
     deleted = records[user_id].pop(number - 1)
-    save_records(records)
+    await save_records(records)
 
     deleted_type = deleted.get("work_type", "غير محدد")
     deleted_total = deleted.get("total")
@@ -276,11 +310,10 @@ async def delete_work(ctx, member: discord.Member = None, number: int = None):
         f"{deleted_type} - ${deleted_total:.2f}"
     )
 
-
 @bot.command(name="حذف_الكل")
 @commands.has_permissions(manage_messages=True)
 async def delete_all_work(ctx):
-    records = load_records()
+    records = await load_records()
     total_deleted = sum(len(items) for items in records.values())
 
     if total_deleted == 0:
@@ -288,9 +321,8 @@ async def delete_all_work(ctx):
         return
 
     records.clear()
-    save_records(records)
+    await save_records(records)
 
     await ctx.send(f"🗑️ تم حذف كل السجلات من كل الأعضاء. عدد السجلات المحذوفة: {total_deleted}")
-
 
 bot.run(TOKEN)
