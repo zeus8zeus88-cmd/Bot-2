@@ -26,24 +26,38 @@ PRICES = {
 }
 
 # MongoDB setup
+print("[LOG] Creating MongoDB client...")
 mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = mongo_client["work_bot"]
 collection = db["records"]
 
 async def load_records():
     """Load records from MongoDB"""
-    doc = await collection.find_one({"_id": "records"})
-    if doc and "data" in doc:
-        return doc["data"]
-    return {}
+    print("[LOG] load_records() called - Attempting to fetch data from MongoDB...")
+    try:
+        doc = await collection.find_one({"_id": "records"})
+        if doc and "data" in doc:
+            print("[LOG] load_records() - Data found, returning records.")
+            return doc["data"]
+        else:
+            print("[LOG] load_records() - No records found, returning empty dict.")
+            return {}
+    except Exception as e:
+        print(f"[ERROR] load_records() - Failed to fetch data: {e}")
+        return {}
 
 async def save_records(records):
     """Save records to MongoDB"""
-    await collection.update_one(
-        {"_id": "records"},
-        {"$set": {"data": records}},
-        upsert=True
-    )
+    print("[LOG] save_records() called - Attempting to save data to MongoDB...")
+    try:
+        await collection.update_one(
+            {"_id": "records"},
+            {"$set": {"data": records}},
+            upsert=True
+        )
+        print("[LOG] save_records() - Data saved successfully.")
+    except Exception as e:
+        print(f"[ERROR] save_records() - Failed to save data: {e}")
 
 def parse_fields(text):
     fields = {}
@@ -63,10 +77,21 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
+    print(f"[LOG] Logged in as {bot.user}")
+    
+    # Test MongoDB connection
+    print("[LOG] Testing MongoDB connection...")
+    try:
+        # Perform a simple ping operation
+        await mongo_client.admin.command('ping')
+        print("[LOG] MongoDB connection successful! (ping command succeeded)")
+    except Exception as e:
+        print(f"[ERROR] MongoDB connection failed: {e}")
+    
     # Sync slash commands
+    print("[LOG] Syncing slash commands...")
     await bot.tree.sync()
-    print("Slash commands synced")
+    print("[LOG] Slash commands synced")
 
 @bot.check
 async def only_allowed_channel(ctx):
@@ -120,6 +145,8 @@ async def upload_records(interaction: discord.Interaction, file: discord.Attachm
         total_users = len(data)
         total_entries = sum(len(entries) for entries in data.values() if isinstance(entries, list))
 
+        print(f"[LOG] Data restored via slash command: users={total_users}, entries={total_entries}")
+
         await interaction.followup.send(
             f"✅ تم استعادة البيانات بنجاح!\n"
             f"عدد المستخدمين: {total_users}\n"
@@ -129,6 +156,7 @@ async def upload_records(interaction: discord.Interaction, file: discord.Attachm
     except json.JSONDecodeError:
         await interaction.followup.send("الملف ليس بصيغة JSON صحيحة.", ephemeral=True)
     except Exception as e:
+        print(f"[ERROR] Slash command restore failed: {e}")
         await interaction.followup.send(f"حدث خطأ: {str(e)}", ephemeral=True)
 
 # ---------- Original text commands (modified to use async load/save) ----------
