@@ -492,10 +492,34 @@ async def upload_records(interaction: discord.Interaction, file: discord.Attachm
         total_users = len(records_data)
         total_entries = sum(len(entries) for entries in records_data.values() if isinstance(entries, list))
 
-        # Update works if present
+        # --- NEW: Auto-extract works from records ---
+        works_from_records = set()
+        for user_entries in records_data.values():
+            if isinstance(user_entries, list):
+                for entry in user_entries:
+                    if isinstance(entry, dict) and "work_name" in entry:
+                        works_from_records.add(entry["work_name"])
+
+        if works_from_records:
+            current_works = await load_works()
+            existing_names = {w["name"] for w in current_works}
+            added_works_count = 0
+            for name in works_from_records:
+                if name not in existing_names:
+                    current_works.append({"name": name, "paid_start": None, "active": True})
+                    existing_names.add(name)
+                    added_works_count += 1
+            if added_works_count > 0:
+                await save_works(current_works)
+        else:
+            added_works_count = 0
+        # --- End of auto-extract ---
+
+        # Update works from file if present (overwrites if the user provided a "works" section)
         if works_data is not None:
             if isinstance(works_data, list):
                 await save_works(works_data)
+                added_works_count = len(works_data)  # override count with explicit works data
             else:
                 await interaction.followup.send("⚠️ تم تحديث السجلات لكن قسم works غير صالح (تم تجاهله).", ephemeral=True)
                 await log_audit("رفع_البيانات", interaction.user.id, None,
@@ -505,19 +529,21 @@ async def upload_records(interaction: discord.Interaction, file: discord.Attachm
                     f"✅ تم استعادة السجلات بنجاح!\nعدد المستخدمين: {total_users}\nإجمالي السجلات: {total_entries}",
                     ephemeral=True)
                 return
+
         await log_audit("رفع_البيانات", interaction.user.id, None,
-                        f"تم رفع {total_entries} سجل" + (" و تحديث الأعمال" if works_data is not None else ""))
+                        f"تم رفع {total_entries} سجل" + (f" و {added_works_count} عمل جديد" if added_works_count else ""))
         await update_stats()
         msg = f"✅ تم استعادة البيانات بنجاح!\nعدد المستخدمين: {total_users}\nإجمالي السجلات: {total_entries}"
+        if added_works_count:
+            msg += f"\nأعمال جديدة مضافة من السجلات: {added_works_count}"
         if works_data is not None:
-            msg += f"\nالأعمال المحدثة: {len(works_data)}"
+            msg += f"\nالأعمال المحدثة من الملف: {len(works_data)}"
         await interaction.followup.send(msg, ephemeral=True)
     except json.JSONDecodeError:
         await interaction.followup.send("❌ الملف ليس بصيغة JSON صحيحة.", ephemeral=True)
     except Exception as e:
         print(f"[ERROR] Slash command restore failed: {e}")
         await interaction.followup.send(f"❌ حدث خطأ: {str(e)}", ephemeral=True)
-
 # ----------------------------------------------------------------------
 # Command: اوامر (help)
 # ----------------------------------------------------------------------
