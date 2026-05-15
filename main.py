@@ -145,7 +145,11 @@ async def update_stats():
             wtype = entry.get("work_type")
             if wtype in type_counts:
                 type_counts[wtype] += 1
-                member_counts[wtype] += 1
+                # إذا كان النوع غير موجود في القاموس، قم بإنشائه واعطه القيمة 0
+if wtype not in member_counts:
+    member_counts[wtype] = 0
+
+member_counts[wtype] += 1
             else:
                 # fallback
                 type_counts[wtype] = type_counts.get(wtype,0)+1
