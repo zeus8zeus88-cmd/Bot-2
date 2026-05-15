@@ -383,7 +383,7 @@ async def only_allowed_channel(ctx):
     return False
 
 def is_admin(interaction: discord.Interaction) -> bool:
-    return interaction.user.guild_permissions.manage_guild
+    return interaction.user.guild_permissions.manage_messages
 
 # ----------------------------------------------------------------------
 # Tasks
