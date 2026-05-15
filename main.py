@@ -199,6 +199,19 @@ def parse_chapter_range(range_str):
             chapters.append(range_str)
     return chapters
 
+def parse_mixed_types(types_input, chapters_count):
+    """Parse types input like 'ترجمة' or 'ترجمة,تحرير,تبييض' and return list of types for each chapter"""
+    types_input = types_input.strip()
+    if ',' in types_input:
+        parts = [p.strip() for p in types_input.split(',')]
+        if len(parts) == chapters_count:
+            return parts
+        else:
+            return None
+    else:
+        # Single type for all chapters
+        return [types_input] * chapters_count
+
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -377,86 +390,117 @@ async def upload_records(interaction: discord.Interaction, file: discord.Attachm
 # ---------- Slash and Text command: اوامر (help) ----------
 @bot.tree.command(name="اوامر", description="عرض قائمة بجميع أوامر البوت")
 async def help_slash(interaction: discord.Interaction):
-    embed = discord.Embed(title="# 📌 أوامر البوت", color=discord.Color.purple())
-    embed.add_field(name="## تسجيل شغل جديد", value="`!تحليل` أو `/تسجيل`\n*يستخدمه العضو لحفظ شغله.*", inline=False)
-    embed.add_field(name="## عرض شغل عضو (مجمّع)", value="`!شغل @member` أو `/شغل member:`", inline=False)
-    embed.add_field(name="## تسجيل عدة فصول مرة واحدة", value="`!تسجيل_متعدد` أو `/تسجيل_متعدد`", inline=False)
-    embed.add_field(name="## حذف سجل (للمشرفين)", value="`!حذف @member رقم` أو `/حذف`", inline=False)
-    embed.add_field(name="## حذف كل السجلات (للمشرفين)", value="`!حذف_الكل` أو `/حذف_الكل`", inline=False)
-    embed.add_field(name="## تحديد القنوات (للمشرفين)", value="`!تحديد_قنوات` أو `/تحديد_قنوات`", inline=False)
-    embed.add_field(name="## لوحة التحكم (للمشرفين)", value="`/لوحة_التحكم`", inline=False)
-    embed.add_field(name="## الإحصائيات", value="`/احصائيات`", inline=False)
-    embed.add_field(name="## سجل العمليات (للمشرفين)", value="`/سجل`", inline=False)
-    embed.add_field(name="## تقريري الأسبوعي", value="`/تقريري`", inline=False)
-    embed.add_field(name="## تعديل آخر سجل", value="`/تعديل`", inline=False)
-    embed.add_field(name="## تصدير Excel (للمشرفين)", value="`/تصدير`", inline=False)
-    embed.add_field(name="## إعدادات العملة والإشعارات (للمشرفين)", value="`/اعدادات`", inline=False)
-    embed.add_field(name="## تقرير المشاريع", value="`/مشاريع`", inline=False)
+    embed = discord.Embed(title="📌 **أوامر البوت**", color=discord.Color.purple())
+    embed.add_field(name="**▸ تسجيل شغل جديد**", value="`!تحليل` أو `/تسجيل`\n*يستخدمه العضو لحفظ شغله (يدعم فصلاً واحداً أو عدة فصول، أنواع متعددة أو نوع واحد)*", inline=False)
+    embed.add_field(name="**▸ عرض أعمالي**", value="`!أعمالي` أو `/أعمالي`\n*يعرض أعمالك مجمعة مع إجمالي المبلغ لكل عمل*", inline=False)
+    embed.add_field(name="**▸ عرض شغل عضو**", value="`!شغل @member` أو `/شغل member:`\n*يعرض أعمال العضو المجمعة*", inline=False)
+    embed.add_field(name="**▸ حذف (للمشرفين)**", value="`/حذف` (يدعم حذف كل السجلات، أو حذف عمل كامل، أو حذف فصل محدد)", inline=False)
+    embed.add_field(name="**▸ حذف كل السجلات (للمشرفين)**", value="`!حذف_الكل` أو `/حذف_الكل`", inline=False)
+    embed.add_field(name="**▸ تحديد القنوات (للمشرفين)**", value="`!تحديد_قنوات` أو `/تحديد_قنوات`", inline=False)
+    embed.add_field(name="**▸ لوحة التحكم (للمشرفين)**", value="`/لوحة_التحكم`", inline=False)
+    embed.add_field(name="**▸ الإحصائيات**", value="`/احصائيات`", inline=False)
+    embed.add_field(name="**▸ سجل العمليات (للمشرفين)**", value="`/سجل`", inline=False)
+    embed.add_field(name="**▸ تقريري الأسبوعي**", value="`/تقريري`", inline=False)
+    embed.add_field(name="**▸ تعديل آخر سجل**", value="`/تعديل`", inline=False)
+    embed.add_field(name="**▸ تصدير Excel (للمشرفين)**", value="`/تصدير`", inline=False)
+    embed.add_field(name="**▸ إعدادات العملة والإشعارات (للمشرفين)**", value="`/اعدادات`", inline=False)
+    embed.add_field(name="**▸ تقرير المشاريع**", value="`/مشاريع`", inline=False)
     embed.set_footer(text=f"القنوات المسموحة: {', '.join([f'#{ch}' for ch in SETTINGS.get('allowed_channels', [])])}")
     await interaction.response.send_message(embed=embed)
 
 @bot.command(name="اوامر")
 async def help_commands(ctx):
-    embed = discord.Embed(title="# 📌 أوامر البوت", color=discord.Color.purple())
-    embed.add_field(name="## تسجيل شغل جديد", value="`!تحليل` أو `/تسجيل`", inline=False)
-    embed.add_field(name="## عرض أعمالك (مجمعة)", value="`!أعمالي` أو `/أعمالي`", inline=False)
-    embed.add_field(name="## عرض شغل عضو (مجمّع)", value="`!شغل @member` أو `/شغل member:`", inline=False)
-    embed.add_field(name="## تسجيل عدة فصول مرة واحدة", value="`!تسجيل_متعدد` أو `/تسجيل_متعدد`", inline=False)
-    embed.add_field(name="## حذف سجل (للمشرفين)", value="`!حذف @member رقم` أو `/حذف`", inline=False)
-    embed.add_field(name="## حذف كل السجلات (للمشرفين)", value="`!حذف_الكل` أو `/حذف_الكل`", inline=False)
-    embed.add_field(name="## تحديد القنوات (للمشرفين)", value="`!تحديد_قنوات` أو `/تحديد_قنوات`", inline=False)
-    embed.add_field(name="## لوحة التحكم (للمشرفين)", value="`/لوحة_التحكم`", inline=False)
-    embed.add_field(name="## الإحصائيات", value="`/احصائيات`", inline=False)
-    embed.add_field(name="## سجل العمليات (للمشرفين)", value="`/سجل`", inline=False)
-    embed.add_field(name="## تقريري الأسبوعي", value="`/تقريري`", inline=False)
-    embed.add_field(name="## تعديل آخر سجل", value="`/تعديل`", inline=False)
-    embed.add_field(name="## تصدير Excel (للمشرفين)", value="`/تصدير`", inline=False)
-    embed.add_field(name="## إعدادات العملة والإشعارات (للمشرفين)", value="`/اعدادات`", inline=False)
-    embed.add_field(name="## تقرير المشاريع", value="`/مشاريع`", inline=False)
+    embed = discord.Embed(title="📌 **أوامر البوت**", color=discord.Color.purple())
+    embed.add_field(name="**▸ تسجيل شغل جديد**", value="`!تحليل` أو `/تسجيل`\n*يدعم فصلاً واحداً أو عدة فصول، أنواع متعددة أو نوع واحد*", inline=False)
+    embed.add_field(name="**▸ عرض أعمالي**", value="`!أعمالي` أو `/أعمالي`", inline=False)
+    embed.add_field(name="**▸ عرض شغل عضو**", value="`!شغل @member` أو `/شغل member:`", inline=False)
+    embed.add_field(name="**▸ حذف (للمشرفين)**", value="`/حذف` (خيارات متعددة)", inline=False)
+    embed.add_field(name="**▸ حذف كل السجلات (للمشرفين)**", value="`!حذف_الكل` أو `/حذف_الكل`", inline=False)
+    embed.add_field(name="**▸ تحديد القنوات (للمشرفين)**", value="`!تحديد_قنوات` أو `/تحديد_قنوات`", inline=False)
+    embed.add_field(name="**▸ لوحة التحكم (للمشرفين)**", value="`/لوحة_التحكم`", inline=False)
+    embed.add_field(name="**▸ الإحصائيات**", value="`/احصائيات`", inline=False)
+    embed.add_field(name="**▸ سجل العمليات (للمشرفين)**", value="`/سجل`", inline=False)
+    embed.add_field(name="**▸ تقريري الأسبوعي**", value="`/تقريري`", inline=False)
+    embed.add_field(name="**▸ تعديل آخر سجل**", value="`/تعديل`", inline=False)
+    embed.add_field(name="**▸ تصدير Excel (للمشرفين)**", value="`/تصدير`", inline=False)
+    embed.add_field(name="**▸ إعدادات العملة والإشعارات (للمشرفين)**", value="`/اعدادات`", inline=False)
+    embed.add_field(name="**▸ تقرير المشاريع**", value="`/مشاريع`", inline=False)
     embed.set_footer(text=f"القنوات المسموحة: {', '.join([f'#{ch}' for ch in SETTINGS.get('allowed_channels', [])])}")
     await ctx.send(embed=embed)
 
-# ---------- Slash command: تسجيل (with modal) ----------
-class WorkModal(discord.ui.Modal, title="تسجيل شغل جديد"):
-    work_name = discord.ui.TextInput(label="اسم العمل", placeholder="مثال: رواية الألم", required=True)
-    chapter = discord.ui.TextInput(label="رقم الفصل", placeholder="مثال: 5", required=True)
-    work_type = discord.ui.TextInput(label="النوع", placeholder="تحرير / ترجمة / تبييض", required=True)
+# ---------- Slash command: تسجيل (unified: single chapter or range, optional per-chapter types) ----------
+class RegisterModal(discord.ui.Modal, title="تسجيل شغل جديد"):
+    work_name = discord.ui.TextInput(label="اسم العمل (المانهوا)", placeholder="مثال: Solo Leveling", required=True)
+    chapters = discord.ui.TextInput(label="الفصول (رقم واحد أو نطاق مثل 1-5 أو 1,2,3)", placeholder="مثال: 5  أو  1-5  أو  1,3,5", required=True)
+    types = discord.ui.TextInput(label="الأنواع (اكتب نوعاً واحداً للكل أو أنواع مفصولة بفواصل بنفس ترتيب الفصول)", placeholder="مثال: ترجمة  أو  ترجمة,تحرير,تبييض", required=True)
     notes = discord.ui.TextInput(label="ملاحظات (اختياري)", placeholder="أي تفاصيل إضافية", required=False)
 
     async def on_submit(self, interaction: discord.Interaction):
-        work_type = self.work_type.value.strip()
-        if work_type not in PRICES:
-            await interaction.response.send_message("النوع غير صحيح. اختر: تحرير، ترجمة، تبييض", ephemeral=True)
+        # Parse chapters
+        chapters_list = parse_chapter_range(self.chapters.value)
+        if not chapters_list:
+            await interaction.response.send_message("❌ نطاق الفصول غير صالح. استخدم مثلاً `5` أو `1-5` أو `1,3,5`.", ephemeral=True)
             return
-        total = PRICES[work_type]
+        
+        # Parse types
+        types_input = self.types.value.strip()
+        types_list = parse_mixed_types(types_input, len(chapters_list))
+        if types_list is None:
+            await interaction.response.send_message(f"❌ عدد الأنواع المدخلة ({len(types_input.split(','))}) لا يتطابق مع عدد الفصول ({len(chapters_list)}).\nإما أدخل نوعاً واحداً للكل، أو أدخل أنواعاً مفصولة بفواصل بنفس ترتيب الفصول.", ephemeral=True)
+            return
+        
+        # Validate each type
+        for t in types_list:
+            if t not in PRICES:
+                await interaction.response.send_message(f"❌ النوع `{t}` غير صحيح. الأنواع المسموحة: تحرير، ترجمة، تبييض.", ephemeral=True)
+                return
+        
         records = await load_records()
         user_id = str(interaction.user.id)
         if user_id not in records:
             records[user_id] = []
-        records[user_id].append({
-            "work_name": self.work_name.value,
-            "chapter": self.chapter.value,
-            "work_type": work_type,
-            "total": total,
-            "notes": self.notes.value or "",
-            "timestamp": datetime.utcnow().isoformat()
-        })
+        
+        added = 0
+        for idx, ch in enumerate(chapters_list):
+            work_type = types_list[idx]
+            total = PRICES[work_type]
+            records[user_id].append({
+                "work_name": self.work_name.value,
+                "chapter": ch,
+                "work_type": work_type,
+                "total": total,
+                "notes": self.notes.value or "",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            added += 1
+        
         await save_records(records)
         await update_stats()
-        embed = discord.Embed(title="# ✅ تم حفظ الشغل", color=discord.Color.green())
-        embed.add_field(name="## 📖 العمل", value=self.work_name.value, inline=True)
-        embed.add_field(name="## 🔢 الفصل", value=self.chapter.value, inline=True)
-        embed.add_field(name="## 🛠️ النوع", value=work_type, inline=True)
-        embed.add_field(name="## 💰 المبلغ", value=f"{SETTINGS.get('currency', '$')}{total:.2f}", inline=True)
+        
+        # Build response embed
+        embed = discord.Embed(title="✅ **تم حفظ الشغل بنجاح**", color=discord.Color.green())
+        embed.add_field(name="**📖 العمل**", value=self.work_name.value, inline=True)
+        embed.add_field(name="**🔢 عدد الفصول**", value=str(added), inline=True)
+        if len(set(types_list)) == 1:
+            embed.add_field(name="**🛠️ النوع**", value=types_list[0], inline=True)
+            total_amount = added * PRICES[types_list[0]]
+        else:
+            total_amount = sum(PRICES[t] for t in types_list)
+            types_summary = "\n".join([f"فصل {ch}: {t}" for ch, t in zip(chapters_list, types_list)])
+            embed.add_field(name="**🛠️ تفاصيل الأنواع**", value=types_summary, inline=False)
+        embed.add_field(name="**💰 المبلغ الإجمالي**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=False)
         if self.notes.value:
-            embed.add_field(name="## 📝 ملاحظات", value=self.notes.value, inline=False)
+            embed.add_field(name="**📝 ملاحظات**", value=self.notes.value, inline=False)
+        
         await interaction.response.send_message(embed=embed)
+        
         # Notify admins if notification channel set
         notify_channel_id = SETTINGS.get("notify_channel_id")
         if notify_channel_id:
             channel = interaction.guild.get_channel(notify_channel_id)
             if channel:
-                await channel.send(f"📢 {interaction.user.mention} أضاف شغل جديد: {self.work_name.value} - فصل {self.chapter.value} ({work_type})")
+                await channel.send(f"📢 {interaction.user.mention} أضاف {added} فصول في عمل `{self.work_name.value}`")
+        
         # Check threshold alert
         total_user_amount = sum(item.get("total",0) for item in records[user_id])
         threshold = SETTINGS.get("alert_threshold", 10.0)
@@ -466,132 +510,104 @@ class WorkModal(discord.ui.Modal, title="تسجيل شغل جديد"):
             except:
                 pass
 
-@bot.tree.command(name="تسجيل", description="تسجيل شغل جديد باستخدام نموذج")
+@bot.tree.command(name="تسجيل", description="تسجيل شغل جديد (فصل واحد أو عدة فصول، بنوع واحد أو أنواع مختلفة)")
 async def register_slash(interaction: discord.Interaction):
     if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
         channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
-        await interaction.response.send_message(f"استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
+        await interaction.response.send_message(f"❌ استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
         return
-    await interaction.response.send_modal(WorkModal())
+    await interaction.response.send_modal(RegisterModal())
 
-# ---------- New command: تسجيل_متعدد (multiple chapters at once) ----------
-class MultiWorkModal(discord.ui.Modal, title="تسجيل عدة فصول مرة واحدة"):
-    work_name = discord.ui.TextInput(label="اسم العمل", placeholder="مثال: رواية الألم", required=True)
-    chapters_range = discord.ui.TextInput(label="نطاق الفصول", placeholder="مثال: 1-5 أو 1,2,3", required=True)
-    work_type = discord.ui.TextInput(label="النوع", placeholder="تحرير / ترجمة / تبييض", required=True)
-    notes = discord.ui.TextInput(label="ملاحظات عامة (اختياري)", placeholder="ستُضاف لكل فصل", required=False)
+# ---------- Text command: تحليل (kept for backward compatibility, but enhanced to support range) ----------
+@bot.command(name="تحليل")
+async def analysis(ctx, *, text=None):
+    if not text:
+        await ctx.send(
+            "**📝 الصيغة:**\n"
+            "```text\n"
+            "!تحليل\n"
+            "العمل: اسم العمل\n"
+            "الفصل: رقم الفصل  أو  نطاق الفصول (مثل 1-5)\n"
+            "النوع: نوع واحد  أو  أنواع مفصولة بفواصل (مثل ترجمة,تحرير)\n"
+            "ملاحظات: اختياري\n"
+            "```\n"
+            "**الأنواع:** تحرير، ترجمة، تبييض"
+        )
+        return
 
-    async def on_submit(self, interaction: discord.Interaction):
-        work_type = self.work_type.value.strip()
-        if work_type not in PRICES:
-            await interaction.response.send_message("النوع غير صحيح. اختر: تحرير، ترجمة، تبييض", ephemeral=True)
+    fields = parse_fields(text)
+    work_name = fields.get("العمل") or fields.get("اسم العمل")
+    chapter_str = fields.get("الفصل") or fields.get("رقم الفصل")
+    types_str = fields.get("النوع") or fields.get("الشغل")
+    notes = fields.get("ملاحظات", "")
+
+    if not work_name or not chapter_str or not types_str:
+        await ctx.send("❌ فيه بيانات ناقصة. لازم تكتب: `العمل`، `الفصل`، `النوع`")
+        return
+
+    # Parse chapters
+    chapters_list = parse_chapter_range(chapter_str)
+    if not chapters_list:
+        await ctx.send("❌ نطاق الفصول غير صالح. استخدم مثلاً `5` أو `1-5` أو `1,3,5`.")
+        return
+
+    # Parse types
+    types_list = parse_mixed_types(types_str, len(chapters_list))
+    if types_list is None:
+        await ctx.send(f"❌ عدد الأنواع المدخلة لا يتطابق مع عدد الفصول.\nإما أدخل نوعاً واحداً للكل، أو أدخل أنواعاً مفصولة بفواصل بنفس ترتيب الفصول.")
+        return
+
+    # Validate types
+    for t in types_list:
+        if t not in PRICES:
+            await ctx.send(f"❌ النوع `{t}` غير صحيح. الأنواع: تحرير، ترجمة، تبييض")
             return
-        chapters = parse_chapter_range(self.chapters_range.value)
-        if not chapters:
-            await interaction.response.send_message("نطاق الفصول غير صالح. استخدم مثلاً 1-5 أو 1,2,3", ephemeral=True)
-            return
-        
-        total_per_chapter = PRICES[work_type]
-        records = await load_records()
-        user_id = str(interaction.user.id)
-        if user_id not in records:
-            records[user_id] = []
-        
-        added = 0
-        for ch in chapters:
-            records[user_id].append({
-                "work_name": self.work_name.value,
-                "chapter": ch,
-                "work_type": work_type,
-                "total": total_per_chapter,
-                "notes": self.notes.value or "",
-                "timestamp": datetime.utcnow().isoformat()
-            })
-            added += 1
-        
-        await save_records(records)
-        await update_stats()
-        
-        embed = discord.Embed(title="# ✅ تم تسجيل الفصول بنجاح", color=discord.Color.green())
-        embed.add_field(name="## اسم العمل", value=self.work_name.value, inline=True)
-        embed.add_field(name="## عدد الفصول", value=str(added), inline=True)
-        embed.add_field(name="## النوع", value=work_type, inline=True)
-        embed.add_field(name="## المبلغ لكل فصل", value=f"{SETTINGS.get('currency', '$')}{total_per_chapter:.2f}", inline=True)
-        embed.add_field(name="## الإجمالي", value=f"{SETTINGS.get('currency', '$')}{total_per_chapter * added:.2f}", inline=False)
-        if self.notes.value:
-            embed.add_field(name="## ملاحظات عامة", value=self.notes.value, inline=False)
-        await interaction.response.send_message(embed=embed)
-        
-        # Notify admins
-        notify_channel_id = SETTINGS.get("notify_channel_id")
-        if notify_channel_id:
-            channel = interaction.guild.get_channel(notify_channel_id)
-            if channel:
-                await channel.send(f"📢 {interaction.user.mention} أضاف {added} فصول في عمل {self.work_name.value} ({work_type})")
-        # Threshold alert
-        total_user_amount = sum(item.get("total",0) for item in records[user_id])
-        threshold = SETTINGS.get("alert_threshold", 10.0)
-        if total_user_amount >= threshold:
-            try:
-                await interaction.user.send(f"🔔 تنبيه: إجمالي شغلك وصل إلى {SETTINGS.get('currency', '$')}{total_user_amount:.2f}. تواصل مع الإدارة لصرف مستحقاتك.")
-            except:
-                pass
 
-@bot.tree.command(name="تسجيل_متعدد", description="تسجيل عدة فصول في عمل واحد مرة واحدة")
-async def multi_register_slash(interaction: discord.Interaction):
-    if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
-        channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
-        await interaction.response.send_message(f"استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
-        return
-    await interaction.response.send_modal(MultiWorkModal())
-
-@bot.command(name="تسجيل_متعدد")
-async def multi_register_text(ctx, work_name: str, chapters_range: str, work_type: str, *, notes: str = ""):
-    if work_type not in PRICES:
-        await ctx.send("النوع غير صحيح. اختر: تحرير، ترجمة، تبييض")
-        return
-    chapters = parse_chapter_range(chapters_range)
-    if not chapters:
-        await ctx.send("نطاق الفصول غير صالح. استخدم مثلاً 1-5 أو 1,2,3")
-        return
-    
-    total_per_chapter = PRICES[work_type]
     records = await load_records()
     user_id = str(ctx.author.id)
     if user_id not in records:
         records[user_id] = []
-    
+
     added = 0
-    for ch in chapters:
+    for idx, ch in enumerate(chapters_list):
+        work_type = types_list[idx]
+        total = PRICES[work_type]
         records[user_id].append({
             "work_name": work_name,
             "chapter": ch,
             "work_type": work_type,
-            "total": total_per_chapter,
+            "total": total,
             "notes": notes,
             "timestamp": datetime.utcnow().isoformat()
         })
         added += 1
-    
+
     await save_records(records)
     await update_stats()
-    
-    embed = discord.Embed(title="# ✅ تم تسجيل الفصول بنجاح", color=discord.Color.green())
-    embed.add_field(name="## اسم العمل", value=work_name, inline=True)
-    embed.add_field(name="## عدد الفصول", value=str(added), inline=True)
-    embed.add_field(name="## النوع", value=work_type, inline=True)
-    embed.add_field(name="## المبلغ لكل فصل", value=f"{SETTINGS.get('currency', '$')}{total_per_chapter:.2f}", inline=True)
-    embed.add_field(name="## الإجمالي", value=f"{SETTINGS.get('currency', '$')}{total_per_chapter * added:.2f}", inline=False)
+
+    embed = discord.Embed(title="✅ **تم حفظ الشغل بنجاح**", color=discord.Color.green())
+    embed.add_field(name="**📖 العمل**", value=work_name, inline=True)
+    embed.add_field(name="**🔢 عدد الفصول**", value=str(added), inline=True)
+    if len(set(types_list)) == 1:
+        embed.add_field(name="**🛠️ النوع**", value=types_list[0], inline=True)
+        total_amount = added * PRICES[types_list[0]]
+    else:
+        total_amount = sum(PRICES[t] for t in types_list)
+        types_summary = "\n".join([f"فصل {ch}: {t}" for ch, t in zip(chapters_list, types_list)])
+        embed.add_field(name="**🛠️ تفاصيل الأنواع**", value=types_summary, inline=False)
+    embed.add_field(name="**💰 المبلغ الإجمالي**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=False)
     if notes:
-        embed.add_field(name="## ملاحظات عامة", value=notes, inline=False)
+        embed.add_field(name="**📝 ملاحظات**", value=notes, inline=False)
+
     await ctx.send(embed=embed)
-    
+
     # Notify admins
     notify_channel_id = SETTINGS.get("notify_channel_id")
     if notify_channel_id:
         channel = ctx.guild.get_channel(notify_channel_id)
         if channel:
-            await channel.send(f"📢 {ctx.author.mention} أضاف {added} فصول في عمل {work_name} ({work_type})")
+            await channel.send(f"📢 {ctx.author.mention} أضاف {added} فصول في عمل `{work_name}`")
+
     # Threshold check
     total_user_amount = sum(item.get("total",0) for item in records[user_id])
     threshold = SETTINGS.get("alert_threshold", 10.0)
@@ -600,6 +616,252 @@ async def multi_register_text(ctx, work_name: str, chapters_range: str, work_typ
             await ctx.author.send(f"🔔 تنبيه: إجمالي شغلك وصل إلى {SETTINGS.get('currency', '$')}{total_user_amount:.2f}. تواصل مع الإدارة لصرف مستحقاتك.")
         except:
             pass
+
+# ---------- Advanced Delete Command (with subcommands) ----------
+class DeleteSelect(discord.ui.Select):
+    def __init__(self, user_id, work_name=None):
+        self.user_id = user_id
+        self.work_name = work_name
+        options = []
+        if work_name:
+            options.append(discord.SelectOption(label="🗑️ حذف كل فصول هذا العمل", value="delete_work", description=f"حذف كل فصول عمل {work_name}"))
+            options.append(discord.SelectOption(label="🔍 حذف فصل محدد", value="delete_chapter", description="اختيار فصل لحذفه"))
+        else:
+            options.append(discord.SelectOption(label="👤 حذف كل سجلات العضو", value="delete_all_user", description="حذف كل سجلات العضو بالكامل"))
+            # We'll get works list dynamically
+        options.append(discord.SelectOption(label="❌ إلغاء", value="cancel"))
+        super().__init__(placeholder="اختر إجراء...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "cancel":
+            await interaction.response.edit_message(content="تم الإلغاء.", view=None)
+            return
+        if self.values[0] == "delete_all_user":
+            # Confirm deletion
+            await interaction.response.send_message("⚠️ **تحذير:** هل أنت متأكد من حذف كل سجلات هذا العضو؟ هذا الإجراء لا يمكن التراجع عنه.\nأرسل `تأكيد` خلال 30 ثانية.", ephemeral=True)
+            def check(m):
+                return m.author == interaction.user and m.content == "تأكيد" and m.channel == interaction.channel
+            try:
+                await bot.wait_for('message', timeout=30.0, check=check)
+            except:
+                await interaction.followup.send("❌ تم إلغاء العملية.", ephemeral=True)
+                return
+            records = await load_records()
+            if str(self.user_id) in records:
+                del records[str(self.user_id)]
+                await save_records(records)
+                await log_audit("حذف_كل_سجلات_العضو", interaction.user.id, self.user_id, "حذف كل السجلات")
+                await interaction.followup.send(f"✅ تم حذف كل سجلات العضو.", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ لا توجد سجلات لهذا العضو.", ephemeral=True)
+        elif self.values[0] == "delete_work" and self.work_name:
+            # Confirm delete work
+            await interaction.response.send_message(f"⚠️ **تحذير:** هل أنت متأكد من حذف كل فصول عمل `{self.work_name}` للعضو؟ أرسل `تأكيد` خلال 30 ثانية.", ephemeral=True)
+            def check(m):
+                return m.author == interaction.user and m.content == "تأكيد" and m.channel == interaction.channel
+            try:
+                await bot.wait_for('message', timeout=30.0, check=check)
+            except:
+                await interaction.followup.send("❌ تم إلغاء العملية.", ephemeral=True)
+                return
+            records = await load_records()
+            user_id_str = str(self.user_id)
+            if user_id_str in records:
+                new_entries = [e for e in records[user_id_str] if e.get("work_name") != self.work_name]
+                removed_count = len(records[user_id_str]) - len(new_entries)
+                records[user_id_str] = new_entries
+                if not records[user_id_str]:
+                    del records[user_id_str]
+                await save_records(records)
+                await log_audit("حذف_عمل_كامل", interaction.user.id, self.user_id, f"حذف عمل {self.work_name} (عدد الفصول: {removed_count})")
+                await interaction.followup.send(f"✅ تم حذف عمل `{self.work_name}` بالكامل ({removed_count} فصل).", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ لا توجد سجلات لهذا العضو.", ephemeral=True)
+        elif self.values[0] == "delete_chapter":
+            # Show chapters to choose from
+            records = await load_records()
+            user_id_str = str(self.user_id)
+            if user_id_str not in records:
+                await interaction.response.send_message("❌ لا توجد سجلات لهذا العضو.", ephemeral=True)
+                return
+            work_entries = [e for e in records[user_id_str] if e.get("work_name") == self.work_name]
+            if not work_entries:
+                await interaction.response.send_message("❌ لا توجد فصول لهذا العمل.", ephemeral=True)
+                return
+            options = []
+            for e in work_entries:
+                options.append(discord.SelectOption(label=f"فصل {e.get('chapter')}", value=e.get('chapter'), description=f"النوع: {e.get('work_type')}"))
+            options.append(discord.SelectOption(label="❌ إلغاء", value="cancel"))
+            select = discord.ui.Select(placeholder="اختر الفصل المراد حذفه...", options=options)
+            async def select_callback(interaction2):
+                if select.values[0] == "cancel":
+                    await interaction2.response.edit_message(content="تم الإلغاء.", view=None)
+                    return
+                chapter = select.values[0]
+                # Confirm deletion
+                await interaction2.response.send_message(f"⚠️ هل أنت متأكد من حذف الفصل {chapter} من عمل `{self.work_name}`؟ أرسل `تأكيد` خلال 30 ثانية.", ephemeral=True)
+                def check(m):
+                    return m.author == interaction2.user and m.content == "تأكيد" and m.channel == interaction2.channel
+                try:
+                    await bot.wait_for('message', timeout=30.0, check=check)
+                except:
+                    await interaction2.followup.send("❌ تم إلغاء العملية.", ephemeral=True)
+                    return
+                records2 = await load_records()
+                if user_id_str in records2:
+                    new_entries = [e for e in records2[user_id_str] if not (e.get("work_name") == self.work_name and e.get("chapter") == chapter)]
+                    removed = len(records2[user_id_str]) - len(new_entries)
+                    records2[user_id_str] = new_entries
+                    if not records2[user_id_str]:
+                        del records2[user_id_str]
+                    await save_records(records2)
+                    await log_audit("حذف_فصل", interaction2.user.id, self.user_id, f"حذف فصل {chapter} من عمل {self.work_name}")
+                    await interaction2.followup.send(f"✅ تم حذف الفصل {chapter} من عمل `{self.work_name}`.", ephemeral=True)
+                else:
+                    await interaction2.followup.send("❌ لا توجد سجلات لهذا العضو.", ephemeral=True)
+            select.callback = select_callback
+            view = discord.ui.View(timeout=60)
+            view.add_item(select)
+            await interaction.response.edit_message(content="**اختر الفصل المراد حذفه:**", view=view)
+
+@bot.tree.command(name="حذف", description="حذف سجلات العضو (كل السجلات، أو عمل كامل، أو فصل محدد) - للمشرفين")
+async def delete_advanced(interaction: discord.Interaction, member: discord.Member, work_name: str = None):
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
+        return
+    if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
+        channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
+        await interaction.response.send_message(f"❌ استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
+        return
+
+    records = await load_records()
+    user_id_str = str(member.id)
+    if user_id_str not in records or not records[user_id_str]:
+        await interaction.response.send_message("❌ هذا العضو ما عنده أي شغل محفوظ.", ephemeral=True)
+        return
+
+    if work_name:
+        # Check if work exists for this user
+        work_exists = any(e.get("work_name") == work_name for e in records[user_id_str])
+        if not work_exists:
+            await interaction.response.send_message(f"❌ لا يوجد عمل باسم `{work_name}` لهذا العضو.", ephemeral=True)
+            return
+        view = discord.ui.View(timeout=60)
+        select = DeleteSelect(member.id, work_name)
+        view.add_item(select)
+        await interaction.response.send_message(f"**🗑️ خيارات الحذف لعضو:** {member.mention}\n**العمل:** `{work_name}`", view=view)
+    else:
+        # Show works for this user
+        works = set(e.get("work_name") for e in records[user_id_str])
+        options = []
+        for w in works:
+            options.append(discord.SelectOption(label=f"📖 {w}", value=w, description="اختر هذا العمل لإدارة حذفه"))
+        options.append(discord.SelectOption(label="👤 حذف كل سجلات العضو", value="delete_all_user"))
+        options.append(discord.SelectOption(label="❌ إلغاء", value="cancel"))
+        select = discord.ui.Select(placeholder="اختر عملاً أو خياراً...", options=options)
+        async def select_callback(interaction2):
+            if select.values[0] == "cancel":
+                await interaction2.response.edit_message(content="تم الإلغاء.", view=None)
+                return
+            if select.values[0] == "delete_all_user":
+                # Confirm deletion
+                await interaction2.response.send_message("⚠️ **تحذير:** هل أنت متأكد من حذف كل سجلات هذا العضو؟ أرسل `تأكيد` خلال 30 ثانية.", ephemeral=True)
+                def check(m):
+                    return m.author == interaction2.user and m.content == "تأكيد" and m.channel == interaction2.channel
+                try:
+                    await bot.wait_for('message', timeout=30.0, check=check)
+                except:
+                    await interaction2.followup.send("❌ تم إلغاء العملية.", ephemeral=True)
+                    return
+                records2 = await load_records()
+                if str(member.id) in records2:
+                    del records2[str(member.id)]
+                    await save_records(records2)
+                    await log_audit("حذف_كل_سجلات_العضو", interaction2.user.id, member.id, "حذف كل السجلات")
+                    await interaction2.followup.send(f"✅ تم حذف كل سجلات العضو.", ephemeral=True)
+                else:
+                    await interaction2.followup.send("❌ لا توجد سجلات لهذا العضو.", ephemeral=True)
+            else:
+                work = select.values[0]
+                # Show options for that work
+                view2 = discord.ui.View(timeout=60)
+                select2 = DeleteSelect(member.id, work)
+                view2.add_item(select2)
+                await interaction2.response.edit_message(content=f"**خيارات الحذف لعمل `{work}`:**", view=view2)
+        select.callback = select_callback
+        view = discord.ui.View(timeout=60)
+        view.add_item(select)
+        await interaction.response.send_message(f"**🗑️ اختر العمل أو الإجراء لعضو:** {member.mention}", view=view)
+
+# ---------- Keep the original simple delete command for backward compatibility ----------
+@bot.command(name="حذف")
+@commands.has_permissions(manage_messages=True)
+async def delete_work_text(ctx, member: discord.Member = None, number: int = None):
+    if member is None or number is None:
+        await ctx.send("**الاستخدام:** `!حذف @member 2`\nأو استخدم الأمر السحابي `/حذف` للخيارات المتقدمة.")
+        return
+
+    records = await load_records()
+    user_id = str(member.id)
+
+    if user_id not in records or not records[user_id]:
+        await ctx.send("❌ هذا العضو ما عنده أي شغل محفوظ.")
+        return
+    if number < 1 or number > len(records[user_id]):
+        await ctx.send("❌ رقم السجل غير صحيح.")
+        return
+
+    deleted = records[user_id].pop(number - 1)
+    if not records[user_id]:
+        del records[user_id]
+    await save_records(records)
+    await log_audit("حذف سجل (نصي)", ctx.author.id, member.id, f"السجل #{number}: {deleted.get('work_name')} - فصل {deleted.get('chapter')}")
+
+    embed = discord.Embed(title="🗑️ **تم حذف السجل**", color=discord.Color.red())
+    embed.add_field(name="**المستخدم**", value=member.mention, inline=True)
+    embed.add_field(name="**العمل**", value=deleted.get('work_name', 'غير محدد'), inline=True)
+    embed.add_field(name="**الفصل**", value=deleted.get('chapter', 'غير محدد'), inline=True)
+    embed.add_field(name="**النوع**", value=deleted.get('work_type', 'غير محدد'), inline=True)
+    embed.add_field(name="**المبلغ**", value=f"{SETTINGS.get('currency', '$')}{deleted.get('total', 0):.2f}", inline=True)
+    await ctx.send(embed=embed)
+
+# ---------- Slash and Text command: حذف_الكل (original) ----------
+@bot.tree.command(name="حذف_الكل", description="حذف كل السجلات من كل الأعضاء (للمشرفين)")
+async def delete_all_work_slash(interaction: discord.Interaction):
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
+        return
+    if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
+        channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
+        await interaction.response.send_message(f"❌ استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
+        return
+    
+    records = await load_records()
+    total_deleted = sum(len(items) for items in records.values())
+    if total_deleted == 0:
+        await interaction.response.send_message("📭 ما فيه أي سجلات محفوظة.", ephemeral=True)
+        return
+
+    records.clear()
+    await save_records(records)
+    await log_audit("حذف_الكل", interaction.user.id, None, f"عدد السجلات المحذوفة: {total_deleted}")
+
+    await interaction.response.send_message(f"🗑️ تم حذف كل السجلات من كل الأعضاء. عدد السجلات المحذوفة: {total_deleted}")
+
+@bot.command(name="حذف_الكل")
+@commands.has_permissions(manage_messages=True)
+async def delete_all_work_text(ctx):
+    records = await load_records()
+    total_deleted = sum(len(items) for items in records.values())
+    if total_deleted == 0:
+        await ctx.send("📭 ما فيه أي سجلات محفوظة.")
+        return
+
+    records.clear()
+    await save_records(records)
+    await log_audit("حذف_الكل", ctx.author.id, None, f"عدد السجلات المحذوفة: {total_deleted}")
+
+    await ctx.send(f"🗑️ تم حذف كل السجلات من كل الأعضاء. عدد السجلات المحذوفة: {total_deleted}")
 
 # ---------- Helper View for showing work details per project ----------
 class WorkDetailsView(discord.ui.View):
@@ -648,15 +910,15 @@ class WorkDetailsView(discord.ui.View):
         start = self.current_page * self.items_per_page
         end = start + self.items_per_page
         page_chapters = self.chapters_list[start:end]
-        embed = discord.Embed(title=f"## تفاصيل عمل: {self.work_name}", color=discord.Color.teal())
+        embed = discord.Embed(title=f"**تفاصيل عمل: {self.work_name}**", color=discord.Color.teal())
         embed.set_author(name=self.user_name)
         total_amount = sum(ch['total'] for ch in self.chapters_list)
-        embed.add_field(name="## إجمالي الفصول", value=str(len(self.chapters_list)), inline=True)
-        embed.add_field(name="## إجمالي المبلغ", value=f"{self.currency}{total_amount:.2f}", inline=True)
+        embed.add_field(name="**📊 إجمالي الفصول**", value=str(len(self.chapters_list)), inline=True)
+        embed.add_field(name="**💰 إجمالي المبلغ**", value=f"{self.currency}{total_amount:.2f}", inline=True)
         for ch in page_chapters:
             embed.add_field(
-                name=f"### فصل {ch['chapter']}",
-                value=f"النوع: {ch['type']}\nالمبلغ: {self.currency}{ch['total']:.2f}\nملاحظات: {ch.get('notes', 'لا توجد')}",
+                name=f"**📖 فصل {ch['chapter']}**",
+                value=f"**النوع:** {ch['type']}\n**المبلغ:** {self.currency}{ch['total']:.2f}\n**ملاحظات:** {ch.get('notes', 'لا توجد')}",
                 inline=False
             )
         if self.total_pages > 1:
@@ -668,12 +930,12 @@ class WorkDetailsView(discord.ui.View):
 async def my_works_slash(interaction: discord.Interaction):
     if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
         channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
-        await interaction.response.send_message(f"استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
+        await interaction.response.send_message(f"❌ استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
         return
     records = await load_records()
     user_id = str(interaction.user.id)
     if user_id not in records or not records[user_id]:
-        await interaction.response.send_message("ليس لديك أي شغل مسجل حتى الآن.", ephemeral=True)
+        await interaction.response.send_message("📭 ليس لديك أي شغل مسجل حتى الآن.", ephemeral=True)
         return
     
     # Group entries by work_name
@@ -684,7 +946,7 @@ async def my_works_slash(interaction: discord.Interaction):
             works[work] = []
         works[work].append(entry)
     
-    embed = discord.Embed(title=f"# أعمال {interaction.user.display_name}", color=discord.Color.blue())
+    embed = discord.Embed(title=f"**📚 أعمال {interaction.user.display_name}**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
         work_total = sum(e.get("total", 0) for e in entries)
@@ -695,13 +957,13 @@ async def my_works_slash(interaction: discord.Interaction):
             wtype = e.get("work_type")
             if wtype in types_count:
                 types_count[wtype] += 1
-        type_str = ", ".join([f"{k}: {v}" for k,v in types_count.items() if v>0])
+        type_str = ", ".join([f"**{k}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(
-            name=f"## {work}",
-            value=f"الفصول: {chapters_count}\nالتفصيل: {type_str}\nالمجموع: {SETTINGS.get('currency', '$')}{work_total:.2f}",
+            name=f"**▸ {work}**",
+            value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}",
             inline=False
         )
-    embed.add_field(name="### الإجمالي العام", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     # Add buttons to view details of each work (if too many, limit to 5 buttons)
     view = discord.ui.View(timeout=60)
     for work, entries in list(works.items())[:5]:
@@ -727,7 +989,7 @@ async def my_works_text(ctx):
     records = await load_records()
     user_id = str(ctx.author.id)
     if user_id not in records or not records[user_id]:
-        await ctx.send("ليس لديك أي شغل مسجل حتى الآن.")
+        await ctx.send("📭 ليس لديك أي شغل مسجل حتى الآن.")
         return
     
     works = {}
@@ -737,7 +999,7 @@ async def my_works_text(ctx):
             works[work] = []
         works[work].append(entry)
     
-    embed = discord.Embed(title=f"# أعمال {ctx.author.display_name}", color=discord.Color.blue())
+    embed = discord.Embed(title=f"**📚 أعمال {ctx.author.display_name}**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
         work_total = sum(e.get("total", 0) for e in entries)
@@ -748,23 +1010,22 @@ async def my_works_text(ctx):
             wtype = e.get("work_type")
             if wtype in types_count:
                 types_count[wtype] += 1
-        type_str = ", ".join([f"{k}: {v}" for k,v in types_count.items() if v>0])
+        type_str = ", ".join([f"**{k}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(
-            name=f"## {work}",
-            value=f"الفصول: {chapters_count}\nالتفصيل: {type_str}\nالمجموع: {SETTINGS.get('currency', '$')}{work_total:.2f}",
+            name=f"**▸ {work}**",
+            value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}",
             inline=False
         )
-    embed.add_field(name="### الإجمالي العام", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
-    # For text command, we cannot send interactive buttons easily, but we can send a follow-up with a note to use slash command for details
+    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     await ctx.send(embed=embed)
-    await ctx.send("لرؤية تفاصيل كل عمل، استخدم الأمر `/أعمالي` (سحابي) حيث يمكنك الضغط على الأزرار.")
+    await ctx.send("🔍 لرؤية تفاصيل كل عمل، استخدم الأمر `/أعمالي` (سحابي) حيث يمكنك الضغط على الأزرار.")
 
 # ---------- Slash command: شغل (grouped by work name) - for any member ----------
 @bot.tree.command(name="شغل", description="عرض شغل عضو مجمّع حسب اسم العمل")
 async def show_work_slash(interaction: discord.Interaction, member: discord.Member = None):
     if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
         channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
-        await interaction.response.send_message(f"استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
+        await interaction.response.send_message(f"❌ استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
         return
     
     target = member or interaction.user
@@ -772,7 +1033,7 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
     user_id = str(target.id)
 
     if user_id not in records or not records[user_id]:
-        await interaction.response.send_message("ما عندي أي شغل محفوظ لهذا العضو.", ephemeral=True)
+        await interaction.response.send_message(f"📭 لا يوجد شغل محفوظ للعضو {target.display_name}.", ephemeral=True)
         return
 
     # Group by work_name
@@ -783,7 +1044,7 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
             works[work] = []
         works[work].append(entry)
     
-    embed = discord.Embed(title=f"# شغل {target.display_name} (مجمّع)", color=discord.Color.blue())
+    embed = discord.Embed(title=f"**📚 شغل {target.display_name} (مجمّع)**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
         work_total = sum(e.get("total", 0) for e in entries)
@@ -794,17 +1055,16 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
             wtype = e.get("work_type")
             if wtype in types_count:
                 types_count[wtype] += 1
-        type_str = ", ".join([f"{k}: {v}" for k,v in types_count.items() if v>0])
+        type_str = ", ".join([f"**{k}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(
-            name=f"## {work}",
-            value=f"الفصول: {chapters_count}\nالتفصيل: {type_str}\nالمجموع: {SETTINGS.get('currency', '$')}{work_total:.2f}",
+            name=f"**▸ {work}**",
+            value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}",
             inline=False
         )
-    embed.add_field(name="### الإجمالي العام", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     
-    # Add detail buttons (only for admin or if it's the user themselves? We'll allow anyone to see details, but delete buttons only for admin)
+    # Add detail buttons for each work
     view = discord.ui.View(timeout=60)
-    # Detail buttons for each work
     for work, entries in list(works.items())[:5]:
         chapters_details = []
         for e in entries:
@@ -821,15 +1081,6 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
         button.callback = detail_cb
         view.add_item(button)
     
-    # If admin, add delete all records button (dangerous, but we'll keep as is)
-    if is_admin(interaction):
-        delete_all_button = discord.ui.Button(label="🗑️ حذف كل سجلات هذا العضو", style=discord.ButtonStyle.danger, custom_id="delete_all_user")
-        async def delete_all_cb(interaction: discord.Interaction):
-            # Confirm
-            await interaction.response.send_message("⚠️ هل أنت متأكد؟ سيتم حذف كل شغل هذا العضو نهائياً. استخدم `/حذف_الكل` لجميع الأعضاء.", ephemeral=True)
-        delete_all_button.callback = delete_all_cb
-        view.add_item(delete_all_button)
-    
     await interaction.response.send_message(embed=embed, view=view)
 
 # ---------- Text version of شغل (grouped) ----------
@@ -840,7 +1091,7 @@ async def show_work_text(ctx, member: discord.Member = None):
     user_id = str(member.id)
 
     if user_id not in records or not records[user_id]:
-        await ctx.send("ما عندي أي شغل محفوظ لهذا العضو.")
+        await ctx.send(f"📭 ما عندي أي شغل محفوظ للعضو {member.display_name}.")
         return
 
     works = {}
@@ -850,7 +1101,7 @@ async def show_work_text(ctx, member: discord.Member = None):
             works[work] = []
         works[work].append(entry)
     
-    embed = discord.Embed(title=f"# شغل {member.display_name} (مجمّع)", color=discord.Color.blue())
+    embed = discord.Embed(title=f"**📚 شغل {member.display_name} (مجمّع)**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
         work_total = sum(e.get("total", 0) for e in entries)
@@ -861,188 +1112,21 @@ async def show_work_text(ctx, member: discord.Member = None):
             wtype = e.get("work_type")
             if wtype in types_count:
                 types_count[wtype] += 1
-        type_str = ", ".join([f"{k}: {v}" for k,v in types_count.items() if v>0])
+        type_str = ", ".join([f"**{k}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(
-            name=f"## {work}",
-            value=f"الفصول: {chapters_count}\nالتفصيل: {type_str}\nالمجموع: {SETTINGS.get('currency', '$')}{work_total:.2f}",
+            name=f"**▸ {work}**",
+            value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}",
             inline=False
         )
-    embed.add_field(name="### الإجمالي العام", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     await ctx.send(embed=embed)
-    await ctx.send("لرؤية تفاصيل كل عمل، استخدم الأمر `/شغل` (سحابي) حيث يمكنك الضغط على الأزرار.")
-
-# ---------- Slash and Text command: تحليل (original, kept as is) ----------
-@bot.command(name="تحليل")
-async def analysis(ctx, *, text=None):
-    if not text:
-        await ctx.send(
-            "اكتبها كذا في رسالة واحدة:\n\n"
-            "```text\n"
-            "!تحليل\n"
-            "العمل: اسم العمل\n"
-            "الفصل: رقم الفصل\n"
-            "النوع: تحرير\n"
-            "ملاحظات: اختياري\n"
-            "```\n"
-            "الأنواع: تحرير، ترجمة، تبييض"
-        )
-        return
-
-    fields = parse_fields(text)
-    work_name = fields.get("العمل") or fields.get("اسم العمل")
-    chapter = fields.get("الفصل") or fields.get("رقم الفصل")
-    work_type = fields.get("النوع") or fields.get("الشغل")
-    notes = fields.get("ملاحظات", "")
-
-    if not work_name or not chapter or not work_type:
-        await ctx.send("فيه بيانات ناقصة. لازم تكتب: `العمل`، `الفصل`، `النوع`")
-        return
-
-    work_type = work_type.strip()
-    if work_type not in PRICES:
-        await ctx.send("النوع لازم يكون واحد من: تحرير، ترجمة، تبييض")
-        return
-
-    total = PRICES[work_type]
-    records = await load_records()
-    user_id = str(ctx.author.id)
-    if user_id not in records:
-        records[user_id] = []
-    records[user_id].append({
-        "work_name": work_name,
-        "chapter": chapter,
-        "work_type": work_type,
-        "total": total,
-        "notes": notes,
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    await save_records(records)
-    await update_stats()
-    embed = discord.Embed(title="# ✅ تم حفظ الشغل", color=discord.Color.green())
-    embed.add_field(name="## 📖 العمل", value=work_name, inline=True)
-    embed.add_field(name="## 🔢 الفصل", value=chapter, inline=True)
-    embed.add_field(name="## 🛠️ النوع", value=work_type, inline=True)
-    embed.add_field(name="## 💰 المبلغ", value=f"{SETTINGS.get('currency', '$')}{total:.2f}", inline=True)
-    if notes:
-        embed.add_field(name="## 📝 ملاحظات", value=notes, inline=False)
-    await ctx.send(embed=embed)
-    # Notify admins
-    notify_channel_id = SETTINGS.get("notify_channel_id")
-    if notify_channel_id:
-        channel = ctx.guild.get_channel(notify_channel_id)
-        if channel:
-            await channel.send(f"📢 {ctx.author.mention} أضاف شغل جديد: {work_name} - فصل {chapter} ({work_type})")
-    # Threshold check
-    total_user_amount = sum(item.get("total",0) for item in records[user_id])
-    threshold = SETTINGS.get("alert_threshold", 10.0)
-    if total_user_amount >= threshold:
-        try:
-            await ctx.author.send(f"🔔 تنبيه: إجمالي شغلك وصل إلى {SETTINGS.get('currency', '$')}{total_user_amount:.2f}. تواصل مع الإدارة لصرف مستحقاتك.")
-        except:
-            pass
-
-# ---------- Slash and Text command: حذف (original) ----------
-@bot.tree.command(name="حذف", description="حذف سجل معين من شغل عضو (للمشرفين)")
-async def delete_work_slash(interaction: discord.Interaction, member: discord.Member, number: int):
-    if not is_admin(interaction):
-        await interaction.response.send_message("ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
-        return
-    if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
-        channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
-        await interaction.response.send_message(f"استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
-        return
-    
-    records = await load_records()
-    user_id = str(member.id)
-    if user_id not in records or not records[user_id]:
-        await interaction.response.send_message("هذا العضو ما عنده أي شغل محفوظ.", ephemeral=True)
-        return
-    if number < 1 or number > len(records[user_id]):
-        await interaction.response.send_message("رقم السجل غير صحيح.", ephemeral=True)
-        return
-
-    deleted = records[user_id].pop(number - 1)
-    await save_records(records)
-    await log_audit("حذف سجل", interaction.user.id, member.id, f"السجل #{number}: {deleted.get('work_name')}")
-
-    embed = discord.Embed(title="# 🗑️ تم حذف السجل", color=discord.Color.red())
-    embed.add_field(name="## المستخدم", value=member.mention, inline=True)
-    embed.add_field(name="## العمل", value=deleted.get('work_name', 'غير محدد'), inline=True)
-    embed.add_field(name="## النوع", value=deleted.get('work_type', 'غير محدد'), inline=True)
-    embed.add_field(name="## المبلغ", value=f"{SETTINGS.get('currency', '$')}{deleted.get('total', 0):.2f}", inline=True)
-    await interaction.response.send_message(embed=embed)
-
-@bot.command(name="حذف")
-@commands.has_permissions(manage_messages=True)
-async def delete_work_text(ctx, member: discord.Member = None, number: int = None):
-    if member is None or number is None:
-        await ctx.send("الاستخدام: `!حذف @member 2`")
-        return
-
-    records = await load_records()
-    user_id = str(member.id)
-
-    if user_id not in records or not records[user_id]:
-        await ctx.send("هذا العضو ما عنده أي شغل محفوظ.")
-        return
-    if number < 1 or number > len(records[user_id]):
-        await ctx.send("رقم السجل غير صحيح.")
-        return
-
-    deleted = records[user_id].pop(number - 1)
-    await save_records(records)
-    await log_audit("حذف سجل (نصي)", ctx.author.id, member.id, f"السجل #{number}: {deleted.get('work_name')}")
-
-    embed = discord.Embed(title="# 🗑️ تم حذف السجل", color=discord.Color.red())
-    embed.add_field(name="## المستخدم", value=member.mention, inline=True)
-    embed.add_field(name="## العمل", value=deleted.get('work_name', 'غير محدد'), inline=True)
-    embed.add_field(name="## النوع", value=deleted.get('work_type', 'غير محدد'), inline=True)
-    embed.add_field(name="## المبلغ", value=f"{SETTINGS.get('currency', '$')}{deleted.get('total', 0):.2f}", inline=True)
-    await ctx.send(embed=embed)
-
-# ---------- Slash and Text command: حذف_الكل (original) ----------
-@bot.tree.command(name="حذف_الكل", description="حذف كل السجلات من كل الأعضاء (للمشرفين)")
-async def delete_all_work_slash(interaction: discord.Interaction):
-    if not is_admin(interaction):
-        await interaction.response.send_message("ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
-        return
-    if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
-        channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
-        await interaction.response.send_message(f"استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
-        return
-    
-    records = await load_records()
-    total_deleted = sum(len(items) for items in records.values())
-    if total_deleted == 0:
-        await interaction.response.send_message("ما فيه أي سجلات محفوظة.", ephemeral=True)
-        return
-
-    records.clear()
-    await save_records(records)
-    await log_audit("حذف_الكل", interaction.user.id, None, f"عدد السجلات المحذوفة: {total_deleted}")
-
-    await interaction.response.send_message(f"🗑️ تم حذف كل السجلات من كل الأعضاء. عدد السجلات المحذوفة: {total_deleted}")
-
-@bot.command(name="حذف_الكل")
-@commands.has_permissions(manage_messages=True)
-async def delete_all_work_text(ctx):
-    records = await load_records()
-    total_deleted = sum(len(items) for items in records.values())
-    if total_deleted == 0:
-        await ctx.send("ما فيه أي سجلات محفوظة.")
-        return
-
-    records.clear()
-    await save_records(records)
-    await log_audit("حذف_الكل", ctx.author.id, None, f"عدد السجلات المحذوفة: {total_deleted}")
-
-    await ctx.send(f"🗑️ تم حذف كل السجلات من كل الأعضاء. عدد السجلات المحذوفة: {total_deleted}")
+    await ctx.send("🔍 لرؤية تفاصيل كل عمل، استخدم الأمر `/شغل` (سحابي) حيث يمكنك الضغط على الأزرار.")
 
 # ---------- Other admin commands (dashboard, stats, audit, weekly, edit, export, settings, projects) with formatted embeddings ----------
 @bot.tree.command(name="لوحة_التحكم", description="لوحة تحكم للمشرفين")
 async def dashboard(interaction: discord.Interaction):
     if not is_admin(interaction):
-        await interaction.response.send_message("ما عندك صلاحية.", ephemeral=True)
+        await interaction.response.send_message("❌ ما عندك صلاحية.", ephemeral=True)
         return
     records = await load_records()
     total_users = len(records)
@@ -1050,14 +1134,14 @@ async def dashboard(interaction: discord.Interaction):
     total_amount = 0
     for entries in records.values():
         total_amount += sum(entry.get("total", 0) for entry in entries)
-    embed = discord.Embed(title="# 🖥️ لوحة التحكم", color=discord.Color.gold())
-    embed.add_field(name="## 👥 عدد الأعضاء النشطين", value=total_users, inline=True)
-    embed.add_field(name="## 📄 عدد السجلات الكلي", value=total_entries, inline=True)
-    embed.add_field(name="## 💰 إجمالي المبالغ", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=True)
-    embed.add_field(name="## ⚙️ العملة", value=SETTINGS.get('currency', '$'), inline=True)
-    embed.add_field(name="## 🔔 قناة الإشعارات", value=f"<#{SETTINGS.get('notify_channel_id')}>" if SETTINGS.get('notify_channel_id') else "غير محدد", inline=True)
-    embed.add_field(name="## 💾 قناة النسخ الاحتياطي", value=f"<#{SETTINGS.get('daily_backup_channel_id')}>" if SETTINGS.get('daily_backup_channel_id') else "غير محدد", inline=True)
-    embed.add_field(name="## ⚠️ حد التنبيه", value=f"{SETTINGS.get('currency', '$')}{SETTINGS.get('alert_threshold', 10):.2f}", inline=True)
+    embed = discord.Embed(title="🖥️ **لوحة التحكم**", color=discord.Color.gold())
+    embed.add_field(name="**👥 عدد الأعضاء النشطين**", value=total_users, inline=True)
+    embed.add_field(name="**📄 عدد السجلات الكلي**", value=total_entries, inline=True)
+    embed.add_field(name="**💰 إجمالي المبالغ**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=True)
+    embed.add_field(name="**⚙️ العملة**", value=SETTINGS.get('currency', '$'), inline=True)
+    embed.add_field(name="**🔔 قناة الإشعارات**", value=f"<#{SETTINGS.get('notify_channel_id')}>" if SETTINGS.get('notify_channel_id') else "غير محدد", inline=True)
+    embed.add_field(name="**💾 قناة النسخ الاحتياطي**", value=f"<#{SETTINGS.get('daily_backup_channel_id')}>" if SETTINGS.get('daily_backup_channel_id') else "غير محدد", inline=True)
+    embed.add_field(name="**⚠️ حد التنبيه**", value=f"{SETTINGS.get('currency', '$')}{SETTINGS.get('alert_threshold', 10):.2f}", inline=True)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="احصائيات", description="عرض إحصائيات متقدمة")
@@ -1066,28 +1150,28 @@ async def stats(interaction: discord.Interaction):
     if not stat_doc:
         await interaction.response.send_message("لا توجد إحصائيات بعد.", ephemeral=True)
         return
-    embed = discord.Embed(title="# 📊 إحصائيات البوت", color=discord.Color.teal())
-    embed.add_field(name="## إجمالي السجلات", value=stat_doc.get("total_entries", 0), inline=True)
-    embed.add_field(name="## إجمالي المبالغ", value=f"{SETTINGS.get('currency', '$')}{stat_doc.get('total_amount', 0):.2f}", inline=True)
+    embed = discord.Embed(title="📊 **إحصائيات البوت**", color=discord.Color.teal())
+    embed.add_field(name="**إجمالي السجلات**", value=stat_doc.get("total_entries", 0), inline=True)
+    embed.add_field(name="**إجمالي المبالغ**", value=f"{SETTINGS.get('currency', '$')}{stat_doc.get('total_amount', 0):.2f}", inline=True)
     types = stat_doc.get("type_counts", {})
-    embed.add_field(name="## 📖 تحرير", value=types.get("تحرير", 0), inline=True)
-    embed.add_field(name="## 🌐 ترجمة", value=types.get("ترجمة", 0), inline=True)
-    embed.add_field(name="## ✨ تبييض", value=types.get("تبييض", 0), inline=True)
+    embed.add_field(name="**📖 تحرير**", value=types.get("تحرير", 0), inline=True)
+    embed.add_field(name="**🌐 ترجمة**", value=types.get("ترجمة", 0), inline=True)
+    embed.add_field(name="**✨ تبييض**", value=types.get("تبييض", 0), inline=True)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="سجل", description="عرض آخر 20 عملية إدارية (للمشرفين)")
 async def audit_log(interaction: discord.Interaction):
     if not is_admin(interaction):
-        await interaction.response.send_message("ما عندك صلاحية.", ephemeral=True)
+        await interaction.response.send_message("❌ ما عندك صلاحية.", ephemeral=True)
         return
     logs = await audit_collection.find().sort("timestamp", -1).limit(20).to_list(length=20)
     if not logs:
         await interaction.response.send_message("لا توجد سجلات.", ephemeral=True)
         return
-    embed = discord.Embed(title="# 📜 سجل العمليات", color=discord.Color.dark_gray())
+    embed = discord.Embed(title="📜 **سجل العمليات**", color=discord.Color.dark_gray())
     for log in logs:
         embed.add_field(
-            name=f"## {log.get('action', 'غير معروف')}",
+            name=f"**{log.get('action', 'غير معروف')}**",
             value=f"بواسطة: <@{log.get('moderator_id')}>\nللـ: {log.get('target_id') if log.get('target_id') else 'عام'}\nالتفاصيل: {log.get('details')}\nالوقت: {log.get('timestamp')[:19]}",
             inline=False
         )
@@ -1106,9 +1190,9 @@ async def my_weekly_report(interaction: discord.Interaction):
         await interaction.response.send_message("لا يوجد سجلات خلال الأسبوع الماضي.", ephemeral=True)
         return
     total = sum(e.get("total", 0) for e in week_entries)
-    embed = discord.Embed(title="# 📅 تقريرك الأسبوعي", color=discord.Color.green())
-    embed.add_field(name="## عدد المهام", value=len(week_entries), inline=True)
-    embed.add_field(name="## المجموع", value=f"{SETTINGS.get('currency', '$')}{total:.2f}", inline=True)
+    embed = discord.Embed(title="📅 **تقريرك الأسبوعي**", color=discord.Color.green())
+    embed.add_field(name="**عدد المهام**", value=len(week_entries), inline=True)
+    embed.add_field(name="**المجموع**", value=f"{SETTINGS.get('currency', '$')}{total:.2f}", inline=True)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="تعديل", description="تعديل آخر سجل قمت بإضافته")
@@ -1137,7 +1221,7 @@ async def edit_last(interaction: discord.Interaction, العمل: str = None, ا
 @bot.tree.command(name="تصدير", description="تصدير كل البيانات إلى ملف Excel (للمشرفين)")
 async def export_excel(interaction: discord.Interaction):
     if not is_admin(interaction):
-        await interaction.response.send_message("ما عندك صلاحية.", ephemeral=True)
+        await interaction.response.send_message("❌ ما عندك صلاحية.", ephemeral=True)
         return
     records = await load_records()
     rows = []
@@ -1165,7 +1249,7 @@ async def export_excel(interaction: discord.Interaction):
 @bot.tree.command(name="اعدادات", description="إعدادات البوت (للمشرفين)")
 async def bot_settings(interaction: discord.Interaction, العملة: str = None, قناة_الإشعارات: discord.TextChannel = None, قناة_النسخ: discord.TextChannel = None, حد_التنبيه: float = None):
     if not is_admin(interaction):
-        await interaction.response.send_message("ما عندك صلاحية.", ephemeral=True)
+        await interaction.response.send_message("❌ ما عندك صلاحية.", ephemeral=True)
         return
     if العملة:
         SETTINGS["currency"] = العملة
@@ -1194,9 +1278,9 @@ async def projects_report(interaction: discord.Interaction):
     if not projects:
         await interaction.response.send_message("لا توجد مشاريع مسجلة.")
         return
-    embed = discord.Embed(title="# 📚 تقرير المشاريع", color=discord.Color.purple())
+    embed = discord.Embed(title="📚 **تقرير المشاريع**", color=discord.Color.purple())
     for work, data in list(projects.items())[:10]:
-        embed.add_field(name=f"## {work}", value=f"عدد الفصول: {data['total_pages']}\nعدد المساهمين: {len(data['contributors'])}", inline=False)
+        embed.add_field(name=f"**▸ {work}**", value=f"**الفصول:** {data['total_pages']}\n**المساهمين:** {len(data['contributors'])}", inline=False)
     await interaction.response.send_message(embed=embed)
 
 bot.run(TOKEN)
