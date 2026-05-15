@@ -1,3 +1,4 @@
+pandas
 discord.py
 python-dotenv
 motor
