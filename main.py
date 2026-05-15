@@ -150,8 +150,7 @@ if wtype not in member_counts:
     member_counts[wtype] = 0
 
 member_counts[wtype] += 1
-            else:
-                # fallback
+
                 type_counts[wtype] = type_counts.get(wtype,0)+1
                 member_counts[wtype] = member_counts.get(wtype,0)+1
         member_stats[user_id] = {
