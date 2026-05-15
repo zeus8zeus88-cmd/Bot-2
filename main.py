@@ -406,6 +406,17 @@ async def update_stats_task():
     await update_stats()
 
 # ----------------------------------------------------------------------
+# Autocomplete helper (must be defined before any command that uses it)
+# ----------------------------------------------------------------------
+async def work_autocomplete(interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+    works = await load_works()
+    choices = []
+    for w in works:
+        if current.lower() in w["name"].lower():
+            choices.append(app_commands.Choice(name=w["name"][:100], value=w["name"]))
+    return choices[:25]
+
+# ----------------------------------------------------------------------
 # Command: تحديد_قنوات
 # ----------------------------------------------------------------------
 @bot.tree.command(name="تحديد_قنوات", description="تحديد القنوات المسموحة (قناتين كحد أقصى) - للإدارة فقط")
@@ -1852,14 +1863,6 @@ async def bot_settings(interaction: discord.Interaction, العملة: str = Non
 # ----------------------------------------------------------------------
 # Works management commands
 # ----------------------------------------------------------------------
-async def work_autocomplete(interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
-    works = await load_works()
-    choices = []
-    for w in works:
-        if current.lower() in w["name"].lower():
-            choices.append(app_commands.Choice(name=w["name"][:100], value=w["name"]))
-    return choices[:25]
-
 @bot.tree.command(name="اضافة_عمل", description="إضافة عمل جديد إلى قائمة الأعمال المدفوعة (للمشرفين)")
 @app_commands.describe(الاسم="اسم العمل", بداية_الفصول_المدفوعة="أول فصل مدفوع (اختياري، اتركه فارغاً إذا كان العمل كله مدفوع)", نشط="هل العمل نشط الآن؟")
 @app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
