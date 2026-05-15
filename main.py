@@ -1056,7 +1056,8 @@ class MemberSelect(discord.ui.Select):
         self.guild = guild
         options = []
         for uid, name in members_info[:24]:  # 24 members + cancel = 25 max
-            options.append(discord.SelectOption(label=name, value=str(uid), description=f"عرض فصول {name} في هذا العمل"))
+            # عرض المنشن كنص في الـ label (سيظهر كـ <@id>)
+            options.append(discord.SelectOption(label=f"<@{uid}>", value=str(uid), description=f"{name} - عرض فصوله في هذا العمل"))
         options.append(discord.SelectOption(label="❌ إلغاء", value="cancel"))
         super().__init__(placeholder="اختر عضواً لرؤية تفاصيل فصوله...", options=options)
 
@@ -1067,14 +1068,14 @@ class MemberSelect(discord.ui.Select):
         user_id = int(self.values[0])
         user = self.guild.get_member(user_id)
         if not user:
-            user_name = next((name for uid, name in self.members_info if uid == user_id), str(user_id))
+            user_name = f"<@{user_id}>"
         else:
             user_name = user.display_name
         records = await load_records()
         user_entries = records.get(str(user_id), [])
         work_entries = [e for e in user_entries if e.get("work_name") == self.work_name]
         if not work_entries:
-            await interaction.response.send_message(f"❌ لا توجد فصول للعضو {user_name} في عمل {self.work_name}.", ephemeral=True)
+            await interaction.response.send_message(f"❌ لا توجد فصول للعضو <@{user_id}> في عمل {self.work_name}.", ephemeral=True)
             return
         chapters_details = []
         for e in work_entries:
@@ -1176,7 +1177,7 @@ async def projects_report(interaction: discord.Interaction):
         for uid_str, count in contributors.items():
             uid = int(uid_str)
             member = guild.get_member(uid)
-            name = member.display_name if member else uid_str
+            name = member.display_name if member else f"<@{uid}>"
             members_list.append((uid, name))
         works_info.append((work, members_list))
     
@@ -1216,8 +1217,8 @@ async def stats(interaction: discord.Interaction):
         top_list = ""
         for i, (uid, stats_data) in enumerate(top_members[:5], 1):
             member = interaction.guild.get_member(int(uid))
-            name = member.display_name if member else uid
-            top_list += f"{i}. **{name}** - {stats_data['total_amount']:.2f} {SETTINGS.get('currency', '$')} ({stats_data['total_entries']} فصل)\n"
+            name = member.mention if member else f"<@{uid}>"
+            top_list += f"{i}. {name} - {stats_data['total_amount']:.2f} {SETTINGS.get('currency', '$')} ({stats_data['total_entries']} فصل)\n"
         embed.add_field(name="**🏆 أفضل 5 أعضاء**", value=top_list, inline=False)
     embed.set_footer(text=f"آخر تحديث: {last_updated[:19] if last_updated != 'غير معروف' else last_updated}")
     await interaction.response.send_message(embed=embed)
@@ -1331,7 +1332,7 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
     user_id = str(target.id)
 
     if user_id not in records or not records[user_id]:
-        await interaction.response.send_message(f"📭 لا يوجد شغل محفوظ للعضو {target.display_name}.", ephemeral=True)
+        await interaction.response.send_message(f"📭 لا يوجد شغل محفوظ للعضو {target.mention}.", ephemeral=True)
         return
 
     works = {}
@@ -1388,7 +1389,7 @@ async def show_work_text(ctx, member: discord.Member = None):
     user_id = str(member.id)
 
     if user_id not in records or not records[user_id]:
-        await ctx.send(f"📭 ما عندي أي شغل محفوظ للعضو {member.display_name}.")
+        await ctx.send(f"📭 ما عندي أي شغل محفوظ للعضو {member.mention}.")
         return
 
     works = {}
