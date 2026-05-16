@@ -2204,4 +2204,61 @@ async def add_bonus(interaction: discord.Interaction, عضو: discord.Member, ا
 
 @bot.tree.command(name="خصم", description="خصم مبلغ (سالب) من عضو - للإدارة فقط")
 @app_commands.describe(عضو="العضو المراد الخصم منه", المبلغ="المبلغ الموجب (سيتم خصمه)", السبب="سبب الخصم (اختياري)")
-@app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
+@app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
+async def add_deduction(interaction: discord.Interaction, عضو: discord.Member, المبلغ: float, السبب: str = None):
+    if not is_admin(interaction):
+        await log_unauthorized(interaction.user.id, "خصم")
+        await interaction.response.send_message("❌ ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
+        return
+    if المبلغ <= 0:
+        await interaction.response.send_message("❌ المبلغ يجب أن يكون أكبر من صفر.", ephemeral=True)
+        return
+
+    records = await load_records()
+    user_id = str(عضو.id)
+    if user_id not in records:
+        records[user_id] = []
+
+    deduction_entry = {
+        "work_name": "نظام المكافآت والخصومات",
+        "chapter": "خصم",
+        "work_type": "خصم",
+        "total": -abs(المبلغ),
+        "notes": السبب or "",
+        "timestamp": datetime.utcnow().isoformat(),
+        "username": عضو.name,
+        "added_by": str(interaction.user.id)
+    }
+    records[user_id].append(deduction_entry)
+    await save_records(records)
+    await update_stats()
+
+    embed = discord.Embed(title="🔻 **تم الخصم**", color=discord.Color.red())
+    embed.add_field(name="**👤 العضو**", value=عضو.mention, inline=True)
+    embed.add_field(name="**💸 المبلغ المخصوم**", value=f"{SETTINGS.get('currency', '$')}{abs(المبلغ):.2f}", inline=True)
+    if السبب:
+        embed.add_field(name="**📝 السبب**", value=السبب, inline=False)
+    embed.add_field(name="**🛡️ أضيف بواسطة**", value=interaction.user.mention, inline=True)
+    await interaction.response.send_message(embed=embed)
+
+    await log_audit("خصم", interaction.user.id, عضو.id, f"خصم {abs(المبلغ):.2f} - السبب: {السبب or 'غير محدد'}")
+    try:
+        await عضو.send(f"🔻 تم خصم مبلغ {SETTINGS.get('currency', '$')}{abs(المبلغ):.2f} من رصيدك بواسطة {interaction.user.mention}.\nالسبب: {السبب or 'غير محدد'}")
+    except:
+        pass
+
+# ----------------------------------------------------------------------
+# Init & run
+# ----------------------------------------------------------------------
+async def init_prices():
+    settings = await load_settings()
+    if "prices" not in settings:
+        settings["prices"] = PRICES
+        await save_settings(settings)
+
+async def custom_setup():
+    bot.loop.create_task(init_prices())
+
+bot.setup_hook = custom_setup
+
+bot.run(TOKEN)
