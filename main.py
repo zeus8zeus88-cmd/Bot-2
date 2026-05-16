@@ -564,7 +564,7 @@ async def upload_records(interaction: discord.Interaction, file: discord.Attachm
 async def help_slash(interaction: discord.Interaction):
     embed = discord.Embed(title="📌 **أوامر البوت**", color=discord.Color.purple())
     embed.add_field(name="**▸ تسجيل شغل جديد**",
-                    value="`!تحليل` أو `/تسجيل`\n*يدعم فصلاً واحداً أو عدة فصول، وأنماط أنواع مثل `ترجمة_كوري-تحرير`*",
+                    value="`!تحليل` أو `/تسجيل`\n*يدعم فصلاً واحداً أو عدة فصول، وأنماط أنواع مثل `ترجمة كوري-تحرير`*",
                     inline=False)
     embed.add_field(name="**▸ عرض أعمالي**", value="`!أعمالي` أو `/أعمالي`", inline=False)
     embed.add_field(name="**▸ عرض شغل عضو**", value="`!شغل @member` أو `/شغل`", inline=False)
@@ -586,6 +586,8 @@ async def help_slash(interaction: discord.Interaction):
     embed.add_field(name="**▸ قائمة الأعمال**", value="`/الأعمال`", inline=False)
     embed.add_field(name="**▸ إدارة الأعمال (للمشرفين)**",
                     value="`/اضافة_عمل` `/حذف_عمل` `/تعديل_عمل` `/عرض_الاعمال`", inline=False)
+    embed.add_field(name="**▸ مكافأة وخصم (للمشرفين)**",
+                    value="`/مكافأة` و `/خصم`", inline=False)
     embed.set_footer(text=f"القنوات المسموحة: {', '.join([f'#{ch}' for ch in SETTINGS.get('allowed_channels', [])])}")
     await interaction.response.send_message(embed=embed)
 
@@ -594,7 +596,7 @@ async def help_slash(interaction: discord.Interaction):
 async def help_commands(ctx):
     embed = discord.Embed(title="📌 **أوامر البوت**", color=discord.Color.purple())
     embed.add_field(name="**▸ تسجيل شغل جديد**",
-                    value="`!تحليل` أو `/تسجيل`\n*يدعم فصلاً واحداً أو عدة فصول، وأنماط أنواع مثل `ترجمة_كوري-تحرير`*",
+                    value="`!تحليل` أو `/تسجيل`\n*يدعم فصلاً واحداً أو عدة فصول، وأنماط أنواع مثل `ترجمة كوري-تحرير`*",
                     inline=False)
     embed.add_field(name="**▸ عرض أعمالي**", value="`!أعمالي` أو `/أعمالي`", inline=False)
     embed.add_field(name="**▸ عرض شغل عضو**", value="`!شغل @member` أو `/شغل`", inline=False)
@@ -615,6 +617,8 @@ async def help_commands(ctx):
     embed.add_field(name="**▸ قائمة الأعمال**", value="`/الأعمال`", inline=False)
     embed.add_field(name="**▸ إدارة الأعمال (للمشرفين)**",
                     value="`/اضافة_عمل` `/حذف_عمل` `/تعديل_عمل` `/عرض_الاعمال`", inline=False)
+    embed.add_field(name="**▸ مكافأة وخصم (للمشرفين)**",
+                    value="`/مكافأة` و `/خصم`", inline=False)
     embed.set_footer(text=f"القنوات المسموحة: {', '.join([f'#{ch}' for ch in SETTINGS.get('allowed_channels', [])])}")
     await ctx.send(embed=embed)
 
@@ -649,6 +653,7 @@ async def edit_price_slash(interaction: discord.Interaction, النوع: str, ا
         await log_unauthorized(interaction.user.id, "تعديل_سعر")
         await interaction.response.send_message("❌ ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
         return
+    # Normalize: replace spaces with underscores to match keys
     norm_type = النوع.strip().replace(' ', '_')
     matched = None
     for key in PRICES.keys():
@@ -666,113 +671,121 @@ async def edit_price_slash(interaction: discord.Interaction, النوع: str, ا
     await interaction.response.send_message(f"✅ تم تحديث سعر `{matched}` إلى {SETTINGS.get('currency', '$')}{السعر:.2f}", ephemeral=True)
 
 # ----------------------------------------------------------------------
-# Slash command: تسجيل (RegisterModal)
+# Slash command: تسجيل (now without modal, using autocomplete)
 # ----------------------------------------------------------------------
-class RegisterModal(discord.ui.Modal, title="تسجيل شغل جديد"):
-    work_name = discord.ui.TextInput(label="اسم العمل", placeholder="مثال: Solo Leveling", required=True)
-    chapters = discord.ui.TextInput(label="الفصول", placeholder="مثال: 5  أو  1-5  أو  1,3,5", required=True)
-    types = discord.ui.TextInput(label="الأنواع", placeholder="مثال: ترجمة_كوري  أو  ترجمة_كوري-تحرير-تبييض  أو  ترجمة_كوري-تحرير (الباقي تحرير)", required=True)
-    notes = discord.ui.TextInput(label="ملاحظات (اختياري)", placeholder="أي تفاصيل إضافية", required=False)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        work = await get_work(self.work_name.value)
-        if not work:
-            await interaction.response.send_message(f"❌ العمل `{self.work_name.value}` غير موجود في قائمة الأعمال المدفوعة. تواصل مع الإدارة.", ephemeral=True)
-            return
-        if not work.get("active", True):
-            await interaction.response.send_message(f"❌ العمل `{self.work_name.value}` معطل حالياً.", ephemeral=True)
-            return
-
-        chapters_list = parse_chapter_range(self.chapters.value)
-        if not chapters_list:
-            await interaction.response.send_message("❌ نطاق الفصول غير صالح.", ephemeral=True)
-            return
-
-        paid_chapters, free_count = filter_paid_chapters(work, chapters_list)
-        if not paid_chapters:
-            await interaction.response.send_message("⚠️ جميع الفصول المدخلة مجانية ولم تُسجّل.", ephemeral=True)
-            return
-
-        original_types = parse_mixed_types(self.types.value, len(chapters_list))
-        if original_types is None:
-            await interaction.response.send_message(f"❌ عدد الأنواع لا يتطابق مع عدد الفصول ({len(chapters_list)}).", ephemeral=True)
-            return
-
-        filtered_types = []
-        kept_set = set(paid_chapters)
-        for idx, ch in enumerate(chapters_list):
-            if ch in kept_set:
-                filtered_types.append(original_types[idx])
-
-        for t in filtered_types:
-            if t not in PRICES:
-                await interaction.response.send_message(f"❌ النوع `{t}` غير صحيح. الأنواع: {', '.join(PRICES.keys())}", ephemeral=True)
-                return
-
-        records = await load_records()
-        user_id = str(interaction.user.id)
-        if user_id not in records:
-            records[user_id] = []
-
-        added = 0
-        username = interaction.user.name
-        for idx, ch in enumerate(paid_chapters):
-            work_type = filtered_types[idx]
-            total = PRICES[work_type]
-            records[user_id].append({
-                "work_name": self.work_name.value,
-                "chapter": ch,
-                "work_type": work_type,
-                "total": total,
-                "notes": self.notes.value or "",
-                "timestamp": datetime.utcnow().isoformat(),
-                "username": username
-            })
-            added += 1
-
-        await save_records(records)
-        await update_stats()
-
-        embed = discord.Embed(title="✅ **تم حفظ الشغل بنجاح**", color=discord.Color.green())
-        embed.add_field(name="**📖 العمل**", value=self.work_name.value, inline=True)
-        embed.add_field(name="**🔢 عدد الفصول المدفوعة المسجلة**", value=str(added), inline=True)
-        if free_count > 0:
-            embed.add_field(name="⏭️ فصول مجانية لم تُسجّل", value=str(free_count), inline=True)
-        if len(set(filtered_types)) == 1:
-            embed.add_field(name="**🛠️ النوع**", value=filtered_types[0], inline=True)
-            total_amount = added * PRICES[filtered_types[0]]
-        else:
-            total_amount = sum(PRICES[t] for t in filtered_types)
-            types_summary = "\n".join([f"فصل {ch}: {t}" for ch, t in zip(paid_chapters, filtered_types)])
-            embed.add_field(name="**🛠️ تفاصيل الأنواع**", value=types_summary, inline=False)
-        embed.add_field(name="**💰 المبلغ الإجمالي**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=False)
-        if self.notes.value:
-            embed.add_field(name="**📝 ملاحظات**", value=self.notes.value, inline=False)
-
-        await interaction.response.send_message(embed=embed)
-
-        notify_channel_id = SETTINGS.get("notify_channel_id")
-        if notify_channel_id:
-            channel = interaction.guild.get_channel(notify_channel_id)
-            if channel:
-                await channel.send(f"📢 {interaction.user.mention} أضاف {added} فصول مدفوعة في عمل `{self.work_name.value}`")
-
-        total_user_amount = sum(item.get("total", 0) for item in records[user_id])
-        threshold = SETTINGS.get("alert_threshold", 10.0)
-        if total_user_amount >= threshold:
-            try:
-                await interaction.user.send(f"🔔 تنبيه: إجمالي شغلك وصل إلى {SETTINGS.get('currency', '$')}{total_user_amount:.2f}.")
-            except:
-                pass
-
 @bot.tree.command(name="تسجيل", description="تسجيل شغل جديد (يدعم الفلترة حسب الأعمال المدفوعة)")
+@app_commands.autocomplete(العمل=work_autocomplete)
+@app_commands.describe(
+    العمل="اسم العمل (اختر من القائمة)",
+    الفصول="نطاق الفصول مثل 1-5 أو 1,3,5",
+    الانواع="الأنواع مثل ترجمة كوري-تحرير-تبييض (بدون شرطة سفلية)",
+    ملاحظات="ملاحظات اختيارية"
+)
 @app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
-async def register_slash(interaction: discord.Interaction):
+async def register_slash(interaction: discord.Interaction, العمل: str, الفصول: str, الانواع: str, ملاحظات: str = None):
     if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
         channels_str = ", ".join([f"#{ch}" for ch in SETTINGS.get("allowed_channels", [])])
         await interaction.response.send_message(f"❌ استخدم هذا الأمر فقط في أحد الرومات: {channels_str}.", ephemeral=True)
         return
-    await interaction.response.send_modal(RegisterModal())
+
+    # التحقق من وجود العمل ونشاطه
+    work = await get_work(العمل)
+    if not work:
+        await interaction.response.send_message(f"❌ العمل `{العمل}` غير موجود في قائمة الأعمال المدفوعة. تواصل مع الإدارة.", ephemeral=True)
+        return
+    if not work.get("active", True):
+        await interaction.response.send_message(f"❌ العمل `{العمل}` معطل حالياً.", ephemeral=True)
+        return
+
+    chapters_list = parse_chapter_range(الفصول)
+    if not chapters_list:
+        await interaction.response.send_message("❌ نطاق الفصول غير صالح.", ephemeral=True)
+        return
+
+    paid_chapters, free_count = filter_paid_chapters(work, chapters_list)
+    if not paid_chapters:
+        await interaction.response.send_message("⚠️ جميع الفصول المدخلة مجانية ولم تُسجّل.", ephemeral=True)
+        return
+
+    # تحليل الأنواع مع إمكانية استخدام المسافات بدلاً من الشَرطات السفلية
+    original_types = parse_mixed_types(الانواع, len(chapters_list))
+    if original_types is None:
+        await interaction.response.send_message(f"❌ عدد الأنواع لا يتطابق مع عدد الفصول ({len(chapters_list)}).", ephemeral=True)
+        return
+
+    # تحويل المسافات إلى شرطات سفلية لتطابق القاموس
+    def map_type(t):
+        return t.strip().replace(' ', '_')
+    mapped_types = [map_type(t) for t in original_types]
+
+    # فلترة الأنواع للفصول المدفوعة
+    filtered_types = []
+    kept_set = set(paid_chapters)
+    for idx, ch in enumerate(chapters_list):
+        if ch in kept_set:
+            filtered_types.append(mapped_types[idx])
+
+    # التحقق من صحة الأنواع
+    for t in filtered_types:
+        if t not in PRICES:
+            await interaction.response.send_message(f"❌ النوع `{t}` غير صحيح. الأنواع المتاحة: {', '.join(PRICES.keys())}", ephemeral=True)
+            return
+
+    records = await load_records()
+    user_id = str(interaction.user.id)
+    if user_id not in records:
+        records[user_id] = []
+
+    added = 0
+    username = interaction.user.name
+    for idx, ch in enumerate(paid_chapters):
+        work_type = filtered_types[idx]
+        total = PRICES[work_type]
+        records[user_id].append({
+            "work_name": العمل,
+            "chapter": ch,
+            "work_type": work_type,
+            "total": total,
+            "notes": ملاحظات or "",
+            "timestamp": datetime.utcnow().isoformat(),
+            "username": username
+        })
+        added += 1
+
+    await save_records(records)
+    await update_stats()
+
+    embed = discord.Embed(title="✅ **تم حفظ الشغل بنجاح**", color=discord.Color.green())
+    embed.add_field(name="**📖 العمل**", value=العمل, inline=True)
+    embed.add_field(name="**🔢 عدد الفصول المدفوعة المسجلة**", value=str(added), inline=True)
+    if free_count > 0:
+        embed.add_field(name="⏭️ فصول مجانية لم تُسجّل", value=str(free_count), inline=True)
+    if len(set(filtered_types)) == 1:
+        embed.add_field(name="**🛠️ النوع**", value=filtered_types[0], inline=True)
+        total_amount = added * PRICES[filtered_types[0]]
+    else:
+        total_amount = sum(PRICES[t] for t in filtered_types)
+        types_summary = "\n".join([f"فصل {ch}: {t}" for ch, t in zip(paid_chapters, filtered_types)])
+        embed.add_field(name="**🛠️ تفاصيل الأنواع**", value=types_summary, inline=False)
+    embed.add_field(name="**💰 المبلغ الإجمالي**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=False)
+    if ملاحظات:
+        embed.add_field(name="**📝 ملاحظات**", value=ملاحظات, inline=False)
+
+    await interaction.response.send_message(embed=embed)
+
+    notify_channel_id = SETTINGS.get("notify_channel_id")
+    if notify_channel_id:
+        channel = interaction.guild.get_channel(notify_channel_id)
+        if channel:
+            await channel.send(f"📢 {interaction.user.mention} أضاف {added} فصول مدفوعة في عمل `{العمل}`")
+
+    total_user_amount = sum(item.get("total", 0) for item in records[user_id])
+    threshold = SETTINGS.get("alert_threshold", 10.0)
+    if total_user_amount >= threshold:
+        try:
+            await interaction.user.send(f"🔔 تنبيه: إجمالي شغلك وصل إلى {SETTINGS.get('currency', '$')}{total_user_amount:.2f}.")
+        except:
+            pass
 
 # ----------------------------------------------------------------------
 # NEW: /تسجيل_للغير (Admin registers for a member)
@@ -783,7 +796,7 @@ async def register_slash(interaction: discord.Interaction):
     عضو="العضو الذي تريد تسجيل الشغل له",
     العمل="اسم العمل (يجب أن يكون موجوداً في القائمة)",
     الفصول="نطاق الفصول مثل 1-5 أو 1,3,5",
-    الانواع="الأنواع مثل ترجمة_كوري-تحرير-تبييض",
+    الانواع="الأنواع مثل ترجمة كوري-تحرير-تبييض",
     ملاحظات="ملاحظات اختيارية"
 )
 @app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
@@ -831,12 +844,17 @@ async def register_for_member(
         await interaction.response.send_message(f"❌ عدد الأنواع لا يتطابق مع عدد الفصول ({len(chapters_list)}).", ephemeral=True)
         return
 
+    # تعيين الأنواع إلى المفاتيح الفعلية
+    def map_type(t):
+        return t.strip().replace(' ', '_')
+    mapped_types = [map_type(t) for t in types_list]
+
     # مطابقة الأنواع للفصول المدفوعة فقط
     filtered_types = []
     kept_set = set(paid_chapters)
     for idx, ch in enumerate(chapters_list):
         if ch in kept_set:
-            filtered_types.append(types_list[idx])
+            filtered_types.append(mapped_types[idx])
 
     # التحقق من صحة الأنواع
     for t in filtered_types:
@@ -921,7 +939,7 @@ async def analysis(ctx, *, text=None):
             "!تحليل\n"
             "العمل: اسم العمل\n"
             "الفصل: رقم الفصل  أو  نطاق الفصول (مثل 1-5)\n"
-            "النوع: نوع واحد  أو  أنواع مفصولة بـ - (مثل ترجمة_كوري-تحرير)\n"
+            "النوع: نوع واحد  أو  أنواع مفصولة بـ - (مثل ترجمة كوري-تحرير)\n"
             "ملاحظات: اختياري\n"
             "```\n"
             "**الأنواع المتاحة:** " + "، ".join(PRICES.keys())
@@ -961,11 +979,16 @@ async def analysis(ctx, *, text=None):
         await ctx.send(f"❌ عدد الأنواع لا يتطابق مع عدد الفصول ({len(chapters_list)}).")
         return
 
+    # تحويل المسافات إلى شرطات سفلية
+    def map_type(t):
+        return t.strip().replace(' ', '_')
+    mapped_types = [map_type(t) for t in original_types]
+
     filtered_types = []
     kept_set = set(paid_chapters)
     for idx, ch in enumerate(chapters_list):
         if ch in kept_set:
-            filtered_types.append(original_types[idx])
+            filtered_types.append(mapped_types[idx])
 
     for t in filtered_types:
         if t not in PRICES:
@@ -1590,7 +1613,7 @@ async def stats(interaction: discord.Interaction):
 # ----------------------------------------------------------------------
 # My works / member works commands
 # ----------------------------------------------------------------------
-@bot.tree.command(name="أعمالي", description="عرض أعمالك مجمعة")
+@bot.tree.command(name="أعمالي", description="عرض أعمالك مجمعة مع المكافآت والخصومات")
 @app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
 async def my_works_slash(interaction: discord.Interaction):
     if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
@@ -1601,10 +1624,21 @@ async def my_works_slash(interaction: discord.Interaction):
     if user_id not in records or not records[user_id]:
         await interaction.response.send_message("📭 ليس لديك أي شغل.", ephemeral=True)
         return
+
+    # فصل الأعمال العادية عن المكافآت والخصومات
     works = {}
+    bonuses = []
+    deductions = []
     for entry in records[user_id]:
-        work = entry.get("work_name", "غير محدد")
-        works.setdefault(work, []).append(entry)
+        wtype = entry.get("work_type")
+        if wtype == "مكافأة":
+            bonuses.append(entry)
+        elif wtype == "خصم":
+            deductions.append(entry)
+        else:
+            work = entry.get("work_name", "غير محدد")
+            works.setdefault(work, []).append(entry)
+
     embed = discord.Embed(title=f"**📚 أعمال {interaction.user.display_name}**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
@@ -1617,7 +1651,23 @@ async def my_works_slash(interaction: discord.Interaction):
             types_count[wtype] = types_count.get(wtype, 0) + 1
         type_str = ", ".join([f"**{k.replace('_',' ').title()}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(name=f"**▸ {work}**", value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}", inline=False)
+
+    # المكافآت والخصومات
+    total_bonus = sum(e.get("total", 0) for e in bonuses)
+    total_deduction = sum(abs(e.get("total", 0)) for e in deductions)
+    total_all += total_bonus - total_deduction
+
+    if bonuses or deductions:
+        details = ""
+        if total_bonus > 0:
+            details += f"🎁 إجمالي المكافآت: {SETTINGS.get('currency', '$')}{total_bonus:.2f}\n"
+        if total_deduction > 0:
+            details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
+        embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
+
     embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+
+    # أزرار تفاصيل الأعمال
     view = discord.ui.View(timeout=60)
     for work, entries in list(works.items())[:5]:
         chapters_details = [{"chapter": e.get("chapter"), "type": e.get("work_type"), "total": e.get("total", 0), "notes": e.get("notes", "")} for e in entries]
@@ -1637,10 +1687,20 @@ async def my_works_text(ctx):
     if user_id not in records or not records[user_id]:
         await ctx.send("📭 ليس لديك أي شغل.")
         return
+
     works = {}
+    bonuses = []
+    deductions = []
     for entry in records[user_id]:
-        work = entry.get("work_name", "غير محدد")
-        works.setdefault(work, []).append(entry)
+        wtype = entry.get("work_type")
+        if wtype == "مكافأة":
+            bonuses.append(entry)
+        elif wtype == "خصم":
+            deductions.append(entry)
+        else:
+            work = entry.get("work_name", "غير محدد")
+            works.setdefault(work, []).append(entry)
+
     embed = discord.Embed(title=f"**📚 أعمال {ctx.author.display_name}**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
@@ -1653,10 +1713,23 @@ async def my_works_text(ctx):
             types_count[wtype] = types_count.get(wtype, 0) + 1
         type_str = ", ".join([f"**{k.replace('_',' ').title()}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(name=f"**▸ {work}**", value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}", inline=False)
+
+    total_bonus = sum(e.get("total", 0) for e in bonuses)
+    total_deduction = sum(abs(e.get("total", 0)) for e in deductions)
+    total_all += total_bonus - total_deduction
+
+    if bonuses or deductions:
+        details = ""
+        if total_bonus > 0:
+            details += f"🎁 إجمالي المكافآت: {SETTINGS.get('currency', '$')}{total_bonus:.2f}\n"
+        if total_deduction > 0:
+            details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
+        embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
+
     embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     await ctx.send(embed=embed)
 
-@bot.tree.command(name="شغل", description="عرض شغل عضو مجمّع")
+@bot.tree.command(name="شغل", description="عرض شغل عضو مجمّع مع المكافآت والخصومات")
 @app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
 async def show_work_slash(interaction: discord.Interaction, member: discord.Member = None):
     if interaction.channel.name not in SETTINGS.get("allowed_channels", []):
@@ -1668,10 +1741,20 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
     if user_id not in records or not records[user_id]:
         await interaction.response.send_message(f"📭 لا يوجد شغل للعضو {target.mention}.", ephemeral=True)
         return
+
     works = {}
+    bonuses = []
+    deductions = []
     for entry in records[user_id]:
-        work = entry.get("work_name", "غير محدد")
-        works.setdefault(work, []).append(entry)
+        wtype = entry.get("work_type")
+        if wtype == "مكافأة":
+            bonuses.append(entry)
+        elif wtype == "خصم":
+            deductions.append(entry)
+        else:
+            work = entry.get("work_name", "غير محدد")
+            works.setdefault(work, []).append(entry)
+
     embed = discord.Embed(title=f"**📚 شغل {target.display_name}**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
@@ -1684,7 +1767,21 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
             types_count[wtype] = types_count.get(wtype, 0) + 1
         type_str = ", ".join([f"**{k.replace('_',' ').title()}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(name=f"**▸ {work}**", value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}", inline=False)
+
+    total_bonus = sum(e.get("total", 0) for e in bonuses)
+    total_deduction = sum(abs(e.get("total", 0)) for e in deductions)
+    total_all += total_bonus - total_deduction
+
+    if bonuses or deductions:
+        details = ""
+        if total_bonus > 0:
+            details += f"🎁 إجمالي المكافآت: {SETTINGS.get('currency', '$')}{total_bonus:.2f}\n"
+        if total_deduction > 0:
+            details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
+        embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
+
     embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+
     view = discord.ui.View(timeout=60)
     for work, entries in list(works.items())[:5]:
         chapters_details = [{"chapter": e.get("chapter"), "type": e.get("work_type"), "total": e.get("total", 0), "notes": e.get("notes", "")} for e in entries]
@@ -1705,10 +1802,20 @@ async def show_work_text(ctx, member: discord.Member = None):
     if user_id not in records or not records[user_id]:
         await ctx.send(f"📭 ما عندي أي شغل للعضو {member.mention}.")
         return
+
     works = {}
+    bonuses = []
+    deductions = []
     for entry in records[user_id]:
-        work = entry.get("work_name", "غير محدد")
-        works.setdefault(work, []).append(entry)
+        wtype = entry.get("work_type")
+        if wtype == "مكافأة":
+            bonuses.append(entry)
+        elif wtype == "خصم":
+            deductions.append(entry)
+        else:
+            work = entry.get("work_name", "غير محدد")
+            works.setdefault(work, []).append(entry)
+
     embed = discord.Embed(title=f"**📚 شغل {member.display_name}**", color=discord.Color.blue())
     total_all = 0
     for work, entries in works.items():
@@ -1721,6 +1828,19 @@ async def show_work_text(ctx, member: discord.Member = None):
             types_count[wtype] = types_count.get(wtype, 0) + 1
         type_str = ", ".join([f"**{k.replace('_',' ').title()}:** {v}" for k,v in types_count.items() if v>0])
         embed.add_field(name=f"**▸ {work}**", value=f"**الفصول:** {chapters_count}\n**التفصيل:** {type_str}\n**المجموع:** {SETTINGS.get('currency', '$')}{work_total:.2f}", inline=False)
+
+    total_bonus = sum(e.get("total", 0) for e in bonuses)
+    total_deduction = sum(abs(e.get("total", 0)) for e in deductions)
+    total_all += total_bonus - total_deduction
+
+    if bonuses or deductions:
+        details = ""
+        if total_bonus > 0:
+            details += f"🎁 إجمالي المكافآت: {SETTINGS.get('currency', '$')}{total_bonus:.2f}\n"
+        if total_deduction > 0:
+            details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
+        embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
+
     embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     await ctx.send(embed=embed)
 
@@ -1801,11 +1921,12 @@ async def edit_last(interaction: discord.Interaction, العمل: str = None, ا
     if الفصل:
         last["chapter"] = الفصل
     if النوع:
-        if النوع not in PRICES:
+        norm_type = النوع.strip().replace(' ', '_')
+        if norm_type not in PRICES:
             await interaction.response.send_message("النوع غير صحيح.", ephemeral=True)
             return
-        last["work_type"] = النوع
-        last["total"] = PRICES[النوع]
+        last["work_type"] = norm_type
+        last["total"] = PRICES[norm_type]
     if ملاحظات is not None:
         last["notes"] = ملاحظات
     await save_records(records)
@@ -2034,17 +2155,53 @@ async def list_works(interaction: discord.Interaction):
     await interaction.response.send_message(embed=view.get_embed(), view=view)
 
 # ----------------------------------------------------------------------
-# Init & run
+# NEW: /مكافأة and /خصم (Admin bonus and deduction system)
 # ----------------------------------------------------------------------
-async def init_prices():
-    settings = await load_settings()
-    if "prices" not in settings:
-        settings["prices"] = PRICES
-        await save_settings(settings)
+@bot.tree.command(name="مكافأة", description="إضافة مكافأة (مبلغ موجب) لعضو - للإدارة فقط")
+@app_commands.describe(عضو="العضو المستحق للمكافأة", المبلغ="المبلغ الموجب المراد إضافته", السبب="سبب المكافأة (اختياري)")
+@app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
+async def add_bonus(interaction: discord.Interaction, عضو: discord.Member, المبلغ: float, السبب: str = None):
+    if not is_admin(interaction):
+        await log_unauthorized(interaction.user.id, "مكافأة")
+        await interaction.response.send_message("❌ ما عندك صلاحية تستخدم هذا الأمر.", ephemeral=True)
+        return
+    if المبلغ <= 0:
+        await interaction.response.send_message("❌ المبلغ يجب أن يكون أكبر من صفر.", ephemeral=True)
+        return
 
-async def custom_setup():
-    bot.loop.create_task(init_prices())
+    records = await load_records()
+    user_id = str(عضو.id)
+    if user_id not in records:
+        records[user_id] = []
 
-bot.setup_hook = custom_setup
+    bonus_entry = {
+        "work_name": "نظام المكافآت والخصومات",
+        "chapter": "مكافأة",
+        "work_type": "مكافأة",
+        "total": abs(المبلغ),
+        "notes": السبب or "",
+        "timestamp": datetime.utcnow().isoformat(),
+        "username": عضو.name,
+        "added_by": str(interaction.user.id)
+    }
+    records[user_id].append(bonus_entry)
+    await save_records(records)
+    await update_stats()
 
-bot.run(TOKEN)
+    embed = discord.Embed(title="🎁 **تمت إضافة المكافأة**", color=discord.Color.green())
+    embed.add_field(name="**👤 العضو**", value=عضو.mention, inline=True)
+    embed.add_field(name="**💰 المبلغ**", value=f"{SETTINGS.get('currency', '$')}{abs(المبلغ):.2f}", inline=True)
+    if السبب:
+        embed.add_field(name="**📝 السبب**", value=السبب, inline=False)
+    embed.add_field(name="**🛡️ أضيفت بواسطة**", value=interaction.user.mention, inline=True)
+    await interaction.response.send_message(embed=embed)
+
+    await log_audit("مكافأة", interaction.user.id, عضو.id, f"مكافأة {abs(المبلغ):.2f} - السبب: {السبب or 'غير محدد'}")
+    try:
+        await عضو.send(f"🎁 لقد تلقيت مكافأة بقيمة {SETTINGS.get('currency', '$')}{abs(المبلغ):.2f} من {interaction.user.mention}.\nالسبب: {السبب or 'غير محدد'}")
+    except:
+        pass
+
+@bot.tree.command(name="خصم", description="خصم مبلغ (سالب) من عضو - للإدارة فقط")
+@app_commands.describe(عضو="العضو المراد الخصم منه", المبلغ="المبلغ الموجب (سيتم خصمه)", السبب="سبب الخصم (اختياري)")
+@app_commands.checks.cooldown(1, 5, key=lambda i: (i.user
