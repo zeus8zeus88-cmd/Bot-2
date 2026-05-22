@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 from state import bot
 from helpers.core import *
+from helpers.core import make_embed
 from views.paginators import WorkDetailsView, WorksPaginator, get_works_info
 @bot.tree.command(name="الأعمال", description="عرض جميع الأعمال (المشاريع) والمساهمين")
 @app_commands.checks.cooldown(1, 5, key=lambda i: (i.user.id, i.command.qualified_name))
@@ -93,7 +94,7 @@ async def my_works_slash(interaction: discord.Interaction):
             work = entry.get("work_name", "غير محدد")
             works.setdefault(work, []).append(entry)
 
-    embed = discord.Embed(title=f"**📚 أعمال {interaction.user.display_name}**", color=discord.Color.blue())
+    embed = make_embed("finance", f"💼 اللوحة الشخصية • {interaction.user.display_name}", "ملخص مالي وحسابي لأعمالك.", interaction, interaction.user)
     total_all = 0
     for work, entries in works.items():
         work_total = sum(e.get("total", 0) for e in entries)
@@ -118,7 +119,7 @@ async def my_works_slash(interaction: discord.Interaction):
             details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
         embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
 
-    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+    embed.add_field(name="💵 الصافي النهائي", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
 
     view = discord.ui.View(timeout=60)
     for work, entries in list(works.items())[:5]:
@@ -178,7 +179,7 @@ async def my_works_text(ctx):
             details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
         embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
 
-    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+    embed.add_field(name="💵 الصافي النهائي", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     await ctx.send(embed=embed)
 
 @bot.tree.command(name="شغل", description="عرض شغل عضو مجمّع مع المكافآت والخصومات")
@@ -232,7 +233,7 @@ async def show_work_slash(interaction: discord.Interaction, member: discord.Memb
             details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
         embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
 
-    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+    embed.add_field(name="💵 الصافي النهائي", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
 
     view = discord.ui.View(timeout=60)
     for work, entries in list(works.items())[:5]:
@@ -293,7 +294,7 @@ async def show_work_text(ctx, member: discord.Member = None):
             details += f"🔻 إجمالي الخصومات: {SETTINGS.get('currency', '$')}{total_deduction:.2f}\n"
         embed.add_field(name="**⚖️ مكافآت وخصومات**", value=details, inline=False)
 
-    embed.add_field(name="**💵 الإجمالي العام**", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
+    embed.add_field(name="💵 الصافي النهائي", value=f"{SETTINGS.get('currency', '$')}{total_all:.2f}", inline=False)
     await ctx.send(embed=embed)
 
 # ----------------------------------------------------------------------
@@ -310,7 +311,7 @@ async def dashboard(interaction: discord.Interaction):
     total_users = len(records)
     total_entries = sum(len(entries) for entries in records.values())
     total_amount = sum(sum(e.get("total", 0) for e in entries) for entries in records.values())
-    embed = discord.Embed(title="🖥️ **لوحة التحكم**", color=discord.Color.gold())
+    embed = make_embed("admin", "🖥️ لوحة التحكم الرئيسية", "مركز إدارة شامل للمشرفين.", interaction, interaction.user)
     embed.add_field(name="**👥 عدد الأعضاء النشطين**", value=total_users, inline=True)
     embed.add_field(name="**📄 عدد السجلات الكلي**", value=total_entries, inline=True)
     embed.add_field(name="**💰 إجمالي المبالغ**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=True)

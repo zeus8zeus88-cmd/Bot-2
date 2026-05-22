@@ -335,3 +335,47 @@ def is_duplicate(records, user_id, work_name, chapter, work_type):
             e.get("work_type") == work_type):
             return True
     return False
+
+# ----------------------------------------------------------------------
+# Unified UI helpers
+# ----------------------------------------------------------------------
+EMBED_COLORS = {
+    "success": discord.Color.green(),
+    "danger": discord.Color.red(),
+    "warning": discord.Color.orange(),
+    "info": discord.Color.blue(),
+    "admin": discord.Color.purple(),
+    "finance": discord.Color.gold(),
+    "muted": discord.Color.light_grey(),
+}
+
+def make_embed(kind: str, title: str, description: str = "", interaction: discord.Interaction | None = None, member: discord.Member | None = None):
+    emb = discord.Embed(title=title, description=description, color=EMBED_COLORS.get(kind, discord.Color.blurple()))
+    if member:
+        emb.set_thumbnail(url=member.display_avatar.url)
+    footer = "Work Bot • واجهة موحدة"
+    if interaction:
+        footer += f" • {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+    emb.set_footer(text=footer)
+    return emb
+
+class ConfirmActionView(discord.ui.View):
+    def __init__(self, on_confirm, on_preview=None, timeout=60):
+        super().__init__(timeout=timeout)
+        self._on_confirm = on_confirm
+        self._on_preview = on_preview
+
+    @discord.ui.button(label="🗑️ تأكيد الحذف", style=discord.ButtonStyle.danger)
+    async def confirm_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._on_confirm(interaction)
+
+    @discord.ui.button(label="ℹ️ عرض التفاصيل", style=discord.ButtonStyle.primary)
+    async def preview_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self._on_preview:
+            await self._on_preview(interaction)
+        else:
+            await interaction.response.send_message("لا توجد تفاصيل إضافية.", ephemeral=True)
+
+    @discord.ui.button(label="إلغاء", style=discord.ButtonStyle.secondary)
+    async def cancel_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(content="تم إلغاء العملية.", view=None)

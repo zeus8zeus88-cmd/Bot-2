@@ -91,11 +91,12 @@ async def register_slash(interaction: discord.Interaction, العمل: str, ال
     await save_records(records)
     await update_stats()
 
-    embed = discord.Embed(title="✅ **تم حفظ الشغل بنجاح**", color=discord.Color.green())
-    embed.add_field(name="**📖 العمل**", value=العمل, inline=True)
-    embed.add_field(name="**🔢 عدد الفصول المدفوعة المسجلة**", value=str(added), inline=True)
+    embed = make_embed("finance", "🧾 إيصال تسجيل العمل", "تمت معالجة عملية التسجيل بنجاح.", interaction, interaction.user)
+    embed.add_field(name="👤 العضو", value=interaction.user.mention, inline=True)
+    embed.add_field(name="📖 العمل", value=العمل, inline=True)
+    embed.add_field(name="✅ الفصول المسجلة", value=str(added), inline=True)
     if free_count > 0:
-        embed.add_field(name="⏭️ فصول مجانية لم تُسجّل", value=str(free_count), inline=True)
+        embed.add_field(name="⏭️ فصول مجانية تم تجاهلها", value=str(free_count), inline=True)
     if len(set(filtered_types)) == 1:
         embed.add_field(name="**🛠️ التخصص**", value=filtered_types[0], inline=True)
         total_amount = added * PRICES[filtered_types[0]]
@@ -103,7 +104,9 @@ async def register_slash(interaction: discord.Interaction, العمل: str, ال
         total_amount = sum(PRICES[t] for t in filtered_types)
         types_summary = "\n".join([f"فصل {ch}: {t}" for ch, t in zip(paid_chapters, filtered_types)])
         embed.add_field(name="**🛠️ تفاصيل التخصصات**", value=types_summary, inline=False)
-    embed.add_field(name="**💰 المبلغ الإجمالي**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=False)
+    embed.add_field(name="💰 الإجمالي", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=True)
+    embed.add_field(name="📅 تاريخ العملية", value=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"), inline=True)
+    embed.add_field(name="📌 الحالة", value="مكتمل", inline=True)
     if ملاحظات:
         embed.add_field(name="**📝 ملاحظات**", value=ملاحظات, inline=False)
 
@@ -229,12 +232,13 @@ async def register_for_member(
     await update_stats()
 
     # بناء التضمين
-    embed = discord.Embed(title="✅ **تم حفظ الشغل بنجاح**", color=discord.Color.green())
+    embed = make_embed("finance", "🧾 إيصال تسجيل العمل", "تمت معالجة عملية التسجيل بنجاح.", interaction, interaction.user)
     embed.add_field(name="**👤 العضو**", value=عضو.mention, inline=True)
-    embed.add_field(name="**📖 العمل**", value=العمل, inline=True)
-    embed.add_field(name="**🔢 عدد الفصول المدفوعة المسجلة**", value=str(added), inline=True)
+    embed.add_field(name="👤 العضو", value=interaction.user.mention, inline=True)
+    embed.add_field(name="📖 العمل", value=العمل, inline=True)
+    embed.add_field(name="✅ الفصول المسجلة", value=str(added), inline=True)
     if free_count > 0:
-        embed.add_field(name="⏭️ فصول مجانية لم تُسجّل", value=str(free_count), inline=True)
+        embed.add_field(name="⏭️ فصول مجانية تم تجاهلها", value=str(free_count), inline=True)
     if len(set(filtered_types)) == 1:
         embed.add_field(name="**🛠️ التخصص**", value=filtered_types[0], inline=True)
         total_amount = added * PRICES[filtered_types[0]]
@@ -242,7 +246,9 @@ async def register_for_member(
         total_amount = sum(PRICES[t] for t in filtered_types)
         types_summary = "\n".join([f"فصل {ch}: {t}" for ch, t in zip(paid_chapters, filtered_types)])
         embed.add_field(name="**🛠️ تفاصيل التخصصات**", value=types_summary, inline=False)
-    embed.add_field(name="**💰 المبلغ الإجمالي**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=False)
+    embed.add_field(name="💰 الإجمالي", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=True)
+    embed.add_field(name="📅 تاريخ العملية", value=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"), inline=True)
+    embed.add_field(name="📌 الحالة", value="مكتمل", inline=True)
     embed.add_field(name="**🛡️ أضيف بواسطة**", value=interaction.user.mention, inline=True)
     if ملاحظات:
         embed.add_field(name="**📝 ملاحظات**", value=ملاحظات, inline=False)
@@ -362,11 +368,11 @@ async def analysis(ctx, *, text=None):
     await save_records(records)
     await update_stats()
 
-    embed = discord.Embed(title="✅ **تم حفظ الشغل بنجاح**", color=discord.Color.green())
+    embed = make_embed("finance", "🧾 إيصال تسجيل العمل", "تمت معالجة عملية التسجيل بنجاح.", interaction, interaction.user)
     embed.add_field(name="**📖 العمل**", value=work_name, inline=True)
-    embed.add_field(name="**🔢 عدد الفصول المدفوعة المسجلة**", value=str(added), inline=True)
+    embed.add_field(name="✅ الفصول المسجلة", value=str(added), inline=True)
     if free_count > 0:
-        embed.add_field(name="⏭️ فصول مجانية لم تُسجّل", value=str(free_count), inline=True)
+        embed.add_field(name="⏭️ فصول مجانية تم تجاهلها", value=str(free_count), inline=True)
     if len(set(filtered_types)) == 1:
         embed.add_field(name="**🛠️ التخصص**", value=filtered_types[0], inline=True)
         total_amount = added * PRICES[filtered_types[0]]
@@ -374,7 +380,9 @@ async def analysis(ctx, *, text=None):
         total_amount = sum(PRICES[t] for t in filtered_types)
         types_summary = "\n".join([f"فصل {ch}: {t}" for ch, t in zip(paid_chapters, filtered_types)])
         embed.add_field(name="**🛠️ تفاصيل التخصصات**", value=types_summary, inline=False)
-    embed.add_field(name="**💰 المبلغ الإجمالي**", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=False)
+    embed.add_field(name="💰 الإجمالي", value=f"{SETTINGS.get('currency', '$')}{total_amount:.2f}", inline=True)
+    embed.add_field(name="📅 تاريخ العملية", value=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"), inline=True)
+    embed.add_field(name="📌 الحالة", value="مكتمل", inline=True)
     if notes:
         embed.add_field(name="**📝 ملاحظات**", value=notes, inline=False)
 
